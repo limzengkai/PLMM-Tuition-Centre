@@ -2,10 +2,16 @@ import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../../config/context/AuthContext";
 import { db } from "../../../config/firebase";
 import PropTypes from "prop-types";
-import Invoice from "../CardInvoice";
 import CardPagination from "../CardPagination";
 import CardLoading from "../CardLoading";
-import { collection, query, where, getDocs, orderBy, addDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  addDoc,
+} from "firebase/firestore";
 import { Link } from "react-router-dom";
 
 function CardFee({ color }) {
@@ -15,43 +21,42 @@ function CardFee({ color }) {
   const [feePayments, setFeePayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState([]);
-  const [selectedPayment, setSelectedPayment] = useState(null); // State to track selected payment
-  const projectsPerPage = 2; // Number of projects to display per page
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: "ascending",
+  });
+  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false); // State to toggle showing only unpaid payments
+  const projectsPerPage = 2;
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch student data
         const studentDataQuery = query(
           collection(db, "students"),
           where("parentId", "==", currentUser.uid)
         );
         const studentDataSnapshot = await getDocs(studentDataQuery);
         const studentData = [];
-        
+
         studentDataSnapshot.forEach((doc) => {
           studentData.push({
             id: doc.id,
             ...doc.data(),
           });
         });
-        
-        // Update the student state with fetched data
+
         setStudents(studentData);
-        console.log("Student data:", studentData);
-  
+
         const fee = [];
-        // Fetch fee payments for each student
         await Promise.all(
           studentData.map(async (student) => {
-            console.log("Student ID:", student.id);
             const feePaymentQuery = query(
               collection(db, "fees"),
               where("StudentID", "==", student.id),
               orderBy("paymentStatus", "asc"),
               orderBy("DueDate", "desc")
             );
-  
+
             const feeData = [];
             const feePaymentSnapshot = await getDocs(feePaymentQuery);
             feePaymentSnapshot.forEach((doc) => {
@@ -60,47 +65,126 @@ function CardFee({ color }) {
                 ...doc.data(),
               });
             });
-            console.log("Classes data:", student.firstName + " " + student.lastName , ": ", feeData);
-  
-            // Fetch data from subcollection "Classes"
-            await Promise.all(feePaymentSnapshot.docs.map(async (doc) => {
-              const feePaymentlist = await getDocs(
-                collection(db, "fees", doc.id, "Classes")
-              );
-              const classesData = [];
-              feePaymentlist.forEach((classDoc) => {
-                classesData.push({
-                  id: classDoc.id,
-                  ...classDoc.data(),
+
+            await Promise.all(
+              feePaymentSnapshot.docs.map(async (doc) => {
+                const feePaymentlist = await getDocs(
+                  collection(db, "fees", doc.id, "Classes")
+                );
+                const classesData = [];
+                feePaymentlist.forEach((classDoc) => {
+                  classesData.push({
+                    id: classDoc.id,
+                    ...classDoc.data(),
+                  });
                 });
-              });
-  
-              fee.push({
-                id: doc.id,
-                ...doc.data(),
-                classes: classesData,
-                studentName: student.firstName + " " + student.lastName,
-              });
-            }));
+
+                fee.push({
+                  id: doc.id,
+                  ...doc.data(),
+                  classes: classesData,
+                  studentName: student.firstName + " " + student.lastName,
+                });
+              })
+            );
           })
         );
-  
-        // Update the fee payment state with fetched data
+
         setFeePayments(fee);
         setLoading(false);
-        console.log("Fee payment data 2:", fee);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
-  
-    fetchData();
-  }, []);
-  
-  useEffect(() => {
-    console.log("Fee payment data 3:", feePayments);
 
-  }, []);
+    fetchData();
+  }, [currentUser.uid]);
+
+  const handlePayment = (id) => {
+    addDoc(collection(db, "mail"), {
+      to: "limzengkai96@gmail.com",
+      message: {
+        subject: "Payment Notification",
+        text: "Payment has been made for the fee payment with ID: " + id,
+        html: "The Payment with " + id + "has been made for the fee payment",
+      },
+    });
+  };
+
+  const handleSort = (key) => {
+    if (sortConfig.key === key) {
+      setSortConfig({
+        ...sortConfig,
+        direction:
+          sortConfig.direction === "ascending" ? "descending" : "ascending",
+      });
+    } else {
+      setSortConfig({ key, direction: "ascending" });
+    }
+  };
+
+  const sortData = (data) => {
+    const sortedData = [...data];
+    if (sortConfig.key) {
+      sortedData.sort((a, b) => {
+        if (sortConfig.key === "fee") {
+          const feeA = calculateTotalFee(a);
+          const feeB = calculateTotalFee(b);
+          return sortConfig.direction === "ascending"
+            ? feeA - feeB
+            : feeB - feeA;
+        } else {
+          if (a[sortConfig.key] < b[sortConfig.key]) {
+            return sortConfig.direction === "ascending" ? -1 : 1;
+          }
+          if (a[sortConfig.key] > b[sortConfig.key]) {
+            return sortConfig.direction === "ascending" ? 1 : -1;
+          }
+          return 0;
+        }
+      });
+    }
+
+    // Filter paid payments if showUnpaidOnly is true
+    if (showUnpaidOnly) {
+      return sortedData.filter((project) => !project.paymentStatus);
+    }
+    return sortedData;
+  };
+
+  const calculateTotalFee = (project) => {
+    return project.classes?.reduce((totalFee, classItem) => {
+      return (
+        totalFee + classItem.FeeAmounts.reduce((acc, curr) => acc + curr, 0)
+      );
+    }, 0);
+  };
+
+  const getDate = (timestamp) => {
+    if (timestamp && timestamp.toDate) {
+      const d = timestamp.toDate();
+      const year = d.getFullYear();
+      const month = (d.getMonth() + 1).toString().padStart(2, "0");
+      const day = d.getDate().toString().padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+    return "";
+  };
+
+  const toggleShowUnpaidOnly = () => {
+    setShowUnpaidOnly(!showUnpaidOnly);
+  };
+
+  const renderSortIcon = (column) => {
+    if (sortConfig.key === column) {
+      return sortConfig.direction === "ascending" ? (
+        <span>&uarr;</span>
+      ) : (
+        <span>&darr;</span>
+      );
+    }
+    return null;
+  };
 
   // Calculate indexes for pagination
   const indexOfLastProject = currentPage * projectsPerPage;
@@ -141,31 +225,6 @@ function CardFee({ color }) {
     }
   }
 
-  // Function to handle payment action
-  const handlePayment = (id) => {
-    // Perform payment action here
-    addDoc(collection(db, "mail"),{
-      to: "limzengkai96@gmail.com",
-      message:{
-        subject: "Payment Notification",
-        text: "Payment has been made for the fee payment with ID: " + id,
-        html: "The Payment with "+ id + "has been made for the fee payment"
-      }
-    })
-  };
-
-
-  const getDate = (timestamp) => {
-    if (timestamp && timestamp.toDate) {
-      const d = timestamp.toDate();
-      const year = d.getFullYear();
-      const month = (d.getMonth() + 1).toString().padStart(2, "0");
-      const day = d.getDate().toString().padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
-    return ""; // Return an empty string if date is unknown
-  };
-
   return (
     <>
       {loading ? (
@@ -189,43 +248,55 @@ function CardFee({ color }) {
                   Fee Payment
                 </h3>
                 <p className="text-sm text-gray-500">
-                  View and manage your fee payments {feePayments.length}
+                  View and manage your fee payments here
                 </p>
+              </div>
+              <div>
+                <button
+                  className="bg-transparent hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 border border-gray-400 rounded shadow"
+                  onClick={toggleShowUnpaidOnly}
+                >
+                  {showUnpaidOnly ? "Show All" : "Show Unpaid Only"}
+                </button>
               </div>
             </div>
           </div>
           <div className="block w-full overflow-x-auto">
-            <div className="flex justify-end my-4 mx-8">
-              <input
-                type="text"
-                placeholder="Search by description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500"
-                style={{ width: "300px" }}
-              />
-            </div>
             <table className="items-center w-full bg-transparent border-collapse">
-              {/* Table content */}
               <thead>
                 <tr>
                   <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
                     No
                   </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    Due Date
+                  <th
+                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
+                    onClick={() => handleSort("DueDate")}
+                  >
+                    Due Date {renderSortIcon("DueDate")}
                   </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    Student Name
+                  <th
+                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
+                    onClick={() => handleSort("studentName")}
+                  >
+                    Student Name {renderSortIcon("studentName")}
                   </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    Fee
+                  <th
+                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
+                    onClick={() => handleSort("fee")}
+                  >
+                    Fee {renderSortIcon("fee")}
                   </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                  <th
+                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
+                    onClick={() => handleSort("description")}
+                  >
                     Description
                   </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    Paid Date
+                  <th
+                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
+                    onClick={() => handleSort("paymentDate")}
+                  >
+                    Paid Date {renderSortIcon("paymentDate")}
                   </th>
                   <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
                     Action
@@ -233,60 +304,69 @@ function CardFee({ color }) {
                 </tr>
               </thead>
               <tbody>
-                {feePayments.length > 0 &&
-                  feePayments.map((project, index) => (
-                    <tr key={index}>
-                      {" "}
-                      {/* Add key prop here */}
-                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                        {index + 1}
-                      </td>
-                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                        {getDate(project.DueDate)}
-                      </td>
-                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                        {project.studentName}
-                      </td>
-                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                        {"RM " +project.classes?.reduce((totalFee, classItem) => {
-                          return totalFee + classItem.FeeAmounts.reduce((acc, curr) => acc + curr, 0);
+                {sortData(feePayments).map((project, index) => (
+                  <tr key={index}>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      {index + 1}
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      {getDate(project.DueDate)}
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      {project.studentName}
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      {"RM " +
+                        project.classes?.reduce((totalFee, classItem) => {
+                          return (
+                            totalFee +
+                            classItem.FeeAmounts.reduce(
+                              (acc, curr) => acc + curr,
+                              0
+                            )
+                          );
                         }, 0)}
-                      </td>
-                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                        {project.classes
-                          ?.map((classItem) => classItem.Descriptions)
-                          .join(", ")}
-                      </td>
-                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                        {project.paid ? project.paidDate : "Not Paid"}
-                      </td>
-                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      {project.classes
+                        ?.map((classItem) => classItem.Descriptions)
+                        .join(", ")}
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      {project.paymentStatus
+                        ? getDate(project.paymentDate)
+                        : "Not Paid"}
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      <Link
+                        to={`/parent/fee/view/${project.id}`}
+                        className="mr-3 text-black rounded-full font-bold py-2 px-4 bg-blue-500"
+                      >
+                        View
+                      </Link>
+                      {!project.paymentStatus ? (
                         <Link
-                          to={`/parent/fee/view/${project.id}`}
-                          className="mr-3 text-black rounded-full font-bold py-2 px-4 bg-blue-500"
-                        >
-                          View
-                        </Link>
-                        <button
-                          className={
-                            "text-white rounded-full font-bold py-2 px-4 " +
-                            (project.paid
-                              ? "bg-orange-600 cursor-default"
-                              : "font-bold py-2 px-4 hover:bg-blue-600")
-                          }
-                          onClick={() => handlePayment(project.id)}
-                          disabled={project.paid}
+                          to={`/parent/fee/payment/${project.id}/`}
+                          className="text-white rounded-full font-bold py-2 px-4 hover:bg-blue-600"
                           style={{
-                            backgroundColor: project.paid
+                            backgroundColor: project.paymentStatus
                               ? "#808080"
                               : "#04086D",
                           }}
                         >
-                          {project.paid ? "Paid" : "Make a payment"}
+                          Make a payment
+                        </Link>
+                      ) : (
+                        <button
+                          className="bg-gray-400 rounded-full font-bold py-2 px-4"
+                          disabled
+                        >
+                          paid
                         </button>
-                      </td>
-                    </tr>
-                  ))}
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

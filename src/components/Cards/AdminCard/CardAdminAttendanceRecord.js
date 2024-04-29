@@ -40,29 +40,34 @@ function CardAdminAttendanceRecord({ color }) {
         if (classSnap.exists()) {
           const classData = { id: classSnap.id, ...classSnap.data() };
           setClassData(classData);
+          console.log(classData)
           // Fetch student data for the class
           const studentQuery = query(
             collection(db, "students"),
             where("registeredCourses", "array-contains", id)
           );
-
+  
           const studentSnapshot = await getDocs(studentQuery);
           const studentData = studentSnapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
-
+  
           setStudents(studentData);
-
-          // Initialize student attendance data
-          attendanceData.studentAttendance = studentData.map((student) => ({
+  
+          // Initialize student attendance data only for registered students
+          const registeredStudentAttendance = studentData.map((student) => ({
             id: student.id,
             studentName: `${student.firstName} ${student.lastName}`,
             status: true,
             comment: "",
           }));
-
-          setAttendanceData(attendanceData);
+  
+          setAttendanceData({
+            ...attendanceData,
+            studentAttendance: registeredStudentAttendance,
+          });
+          console.log(attendanceData)
           setLoading(false);
         } else {
           console.log("Class document not found");
@@ -71,9 +76,9 @@ function CardAdminAttendanceRecord({ color }) {
         console.error("Error fetching attendance data:", error);
       }
     };
-
+  
     fetchAttendanceData();
-  }, [id, currentUser.uid]);
+  }, [ currentUser.uid]);
 
   const toggleAttendanceStatus = (index) => {
     const updatedAttendanceData = [...attendanceData.studentAttendance];
@@ -335,7 +340,7 @@ function CardAdminAttendanceRecord({ color }) {
                   </thead>
                   <tbody>
                     {filteredAttendance.map((attendance, index) => (
-                      <tr key={attendance.id}>
+                      <tr key={index}>
                         <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
                           {index + 1}
                         </td>

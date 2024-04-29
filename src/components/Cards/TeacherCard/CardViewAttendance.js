@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import PropTypes from "prop-types";
 import { db } from "../../../config/firebase";
 import CardPagination from "../CardPagination";
+import Swal from "sweetalert2";
 import CardLoading from "../CardLoading";
 import {
   query,
@@ -13,6 +14,7 @@ import {
   getDoc,
   limit,
   doc,
+  addDoc,
 } from "firebase/firestore";
 
 function CardViewAttendance({ color }) {
@@ -20,10 +22,14 @@ function CardViewAttendance({ color }) {
   const { currentUser } = useContext(AuthContext);
   const [currentPage, setCurrentPage] = useState(1);
   const [students, setStudents] = useState({});
+  const [showSendEmail, setShowSendEmail] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAbsentNumber, setShowAbsentNumber] = useState(false);
+  const [MaxAbsent, setMaxAbsent] = useState(0);
+  const [SendAbsentEmail, setSendAbsentEmail] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
-  const [classData, setClassData] = useState(null); // Define classData state
+  const [classData, setClassData] = useState(null);
   const classesPerPage = 5;
 
   useEffect(() => {
@@ -68,7 +74,7 @@ function CardViewAttendance({ color }) {
               const studentAttendanceSnapshot = await getDocs(
                 studentAttendanceRef
               );
-              
+
               const studentAttendanceData = studentAttendanceSnapshot.docs.map(
                 (doc) => ({
                   id: doc.id,
@@ -98,7 +104,6 @@ function CardViewAttendance({ color }) {
               // Update state with attendance record
               setAttendanceRecords(attendanceData);
               setLoading(false);
-
             } else {
               console.log("Attendance document not found");
             }
@@ -162,6 +167,172 @@ function CardViewAttendance({ color }) {
     }
     return "Unknown Time";
   };
+
+  async function handleAbsentEmail() {
+    // Show confirmation dialog before proceeding
+    const confirmation = await Swal.fire({
+      title: "Are you sure?",
+      text: "Do you want to send emails to parents of absent students?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, send emails",
+      cancelButtonText: "Cancel",
+    });
+
+    // Proceed only if the user confirms
+    if (confirmation.isConfirmed) {
+      try {
+        setShowSendEmail(true);
+        const studentAttendanceRef = collection(
+          db,
+          "Attendance",
+          attdid,
+          "studentAttendance"
+        );
+        const studentAttendanceSnapshot = await getDocs(studentAttendanceRef);
+        const studentAttendanceData = studentAttendanceSnapshot.docs.map(
+          (doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })
+        );
+
+        const absentStudents = studentAttendanceData.filter(
+          (student) => student.status === false
+        );
+
+        const studentRef = collection(db, "students");
+        const studentSnapshot = await getDocs(studentRef);
+        const studentData = studentSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        studentData.forEach((student) => {
+          const studentAttendance = absentStudents.find(
+              (data) => data.id === student.id
+          );
+          if (studentAttendance) {
+              studentAttendance.studentName = student ? student.firstName + " " + student.lastName : "Unknown Student";
+          }
+        });
+        setMaxAbsent(absentStudents.length);
+        setShowAbsentNumber(true); // Show progress during email sending
+        // Get the email of the parent of the absent student
+        absentStudents.forEach(async (student, index) => {
+          const parentcollectionRef = query(
+            collection(db, "parent"),
+            where("children", "array-contains", student.id)
+          );
+          const parentSnapshot = await getDocs(parentcollectionRef);
+          const parentData = parentSnapshot.docs.map((doc) => ({
+            id: doc.id,
+          }));
+          parentData.forEach(async (parent) => {
+            const UserInfo = await getDoc(doc(db, "users", parent.id));
+            const userData = UserInfo.data();
+            await addDoc(collection(db, "mail"), {
+              to: userData.email,
+              message: {
+                subject: "Absent Student",
+                html: `
+                <!DOCTYPE html>
+                  <html lang="en">
+                  <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Absent Student Notification</title>
+                    <style>
+                      body {
+                        font-family: Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                      }
+                      .container {
+                        max-width: 600px;
+                        margin: auto;
+                        padding: 20px;
+                        border: 1px solid #ddd;
+                        border-radius: 5px;
+                        background-color: #f9f9f9;
+                      }
+                      .header {
+                        text-align: center;
+                        margin-bottom: 20px;
+                      }
+                      .header h1 {
+                        color: #007bff;
+                        margin-bottom: 5px;
+                      }
+                      .message {
+                        margin-bottom: 20px;
+                      }
+                      .footer {
+                        text-align: center;
+                        margin-top: 20px;
+                        font-size: 12px;
+                        color: #777;
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="container">
+                      <div class="header">
+                        <h1>Absent Student Notification</h1>
+                      </div>
+                      <div class="message">
+                        <p>Dear Parent,</p>
+                        <p>Your child <strong>${
+                          student.studentName
+                        }</strong> was marked absent for the class <strong>${
+                                    classData.CourseName
+                                  }</strong> on <strong>${getDate(
+                                    attendanceRecords.Date
+                                  )}</strong> at <strong>${getTime(
+                                    attendanceRecords.StartTime
+                                  )}</strong>.</p>
+                        <p>Please ensure your child's attendance in future classes.</p>
+                        <p>Regards,</p>
+                        <p>PLMM Tuition Centre Team</p>
+                      </div>
+                      <div class="footer">
+                        <p>This email was sent automatically. Please do not reply.</p>
+                      </div>
+                    </div>
+                  </body>
+                  </html>
+                `,
+              },
+            });
+            setSendAbsentEmail(index + 1); // Update send count
+          });
+        });
+        
+        // Hide progress after emails are sent
+        setShowAbsentNumber(false);
+        setShowSendEmail(false);
+
+        if(showAbsentNumber === false && showSendEmail === false) {
+          // Show success message using Swal
+          Swal.fire({
+            icon: "success",
+            title: "Emails Sent",
+            text: "Emails to parents of absent students have been sent successfully!",
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching student data:", error);
+        // Show error message using Swal
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "Failed to send emails. Please try again later.",
+        });
+      }
+    }
+  }
+
 
   return (
     <>
@@ -291,14 +462,18 @@ function CardViewAttendance({ color }) {
                     <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
                       <span
                         className={`rounded-full px-2 py-1 ${
-                          record.status ? "bg-yellow-500 text-white" : "bg-red-500 text-white"
+                          record.status
+                            ? "bg-yellow-500 text-white"
+                            : "bg-red-500 text-white"
                         }`}
                       >
                         {record.status ? "Present" : "Absent"}
                       </span>
                     </td>
                     <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {record.comment !== null && record.comment.trim() !== "" ? record.comment : "No Comment"}
+                      {record.comment !== null && record.comment.trim() !== ""
+                        ? record.comment
+                        : "No Comment"}
                     </td>
                   </tr>
                 ))}
@@ -310,6 +485,29 @@ function CardViewAttendance({ color }) {
             totalPages={totalPages}
             paginate={paginate}
           />
+          <div className="flex justify-center">
+            <div>
+              <button
+                className="rounded-lg mx-auto text-black bg-yellow-400 font-bold py-2 px-4"
+                onClick={handleAbsentEmail}
+                disabled={showSendEmail === true} // Disable button when sending emails
+                style={{ marginLeft: "1rem" }}
+              >
+                {showSendEmail === true
+                  ? "Sending..."
+                  : "Send All Absent Email"}
+              </button>
+            </div>
+          </div>
+          <p className="text-center text-xs pt-2">
+            Note: This will send an email to all students who are marked as
+            Absent
+          </p>
+          {showAbsentNumber && (
+            <div className="text-center font-bold pt-2">
+              {SendAbsentEmail} / {MaxAbsent}
+            </div>
+          )}
         </div>
       )}
     </>

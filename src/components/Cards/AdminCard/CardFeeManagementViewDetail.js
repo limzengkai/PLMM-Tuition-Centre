@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 import { collection, getDocs, getDoc, doc } from "firebase/firestore";
 import { db } from "../../../config/firebase";
 import { PDFViewer } from '@react-pdf/renderer';
-import InvoiceModal from "./InvoiceModal";
+import InvoiceModal from "../InvoiceModal";
 
 function CardFeeManagementViewDetail({ color }) {
   const { id, feeid } = useParams();

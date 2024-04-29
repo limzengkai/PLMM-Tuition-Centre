@@ -19,6 +19,7 @@ import Profile from "../views/Parent/Profile";
 import Class from "../views/Parent/Class.js";
 import Fees from "../views/Parent/Fees.js";
 import TestResult from "../views/Parent/TestResult.js"
+import Payment from "../views/Parent/Payment.js";
 
 export default function Parent() {
   const location = useLocation();
@@ -54,7 +55,7 @@ export default function Parent() {
           break;
       default:
         setHeaderComponent(null);
-        setPageTitle("Dashboard"); // Default title
+        setPageTitle("");
         break;
     }
   }, [location.pathname]);
@@ -77,6 +78,7 @@ export default function Parent() {
             <Route path="classes" element={<Class />} />
             <Route path="classes/register" element={<Class />} />
             <Route path="testresult" element={<TestResult />} />
+            <Route path="fee/payment/:id" element={<Payment/>} />
             <Route path="*" element={<Navigate to="/parent/dashboard" />} />
           </Routes>
           <FooterAdmin />

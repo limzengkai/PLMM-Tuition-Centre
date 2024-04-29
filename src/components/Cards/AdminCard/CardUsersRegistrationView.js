@@ -15,7 +15,6 @@ import CardLoading from "../CardLoading";
 import Swal from "sweetalert2";
 import { ToastContainer, toast } from "react-toastify";
 import { httpsCallable } from "firebase/functions";
-import { sendEmailVerification } from "firebase/auth";
 
 function CardUsersRegistration() {
   const [selectedFunction, setSelectedFunction] = useState("management");
@@ -111,76 +110,9 @@ function CardUsersRegistration() {
           throw new Error(result.data.error);
         }
   
-        const userCredential = result.data.userCredential;
-        const emailVerificationLink = result.data.emailVerificationLink
-        const generatedPassword = result.data.generatedPassword
-        console.log(userCredential)
-        const user = userCredential;
-  
-        await setDoc(doc(db, "users", user.uid), {
-          email: user.email,
-          firstName: registration.firstName,
-          lastName: registration.lastName,
-          contactNumber: registration.contactNumber,
-          address: registration.address,
-          postcode: registration.postcode,
-          city: registration.city,
-          state: registration.state,
-          birthDate: registration.birthDate,
-          role: registration.role,
-          registrationDate: new Date(),
-        });
-  
-        saveStudentInformation(user.uid);
-  
-        const loginLink = `http://localhost:3000/auth/login`;
-        const emailBody = `
-        <html>
-        <head>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              line-height: 1.6;
-            }
-            .container {
-              max-width: 600px;
-              margin: 0 auto;
-              padding: 20px;
-              background-color: #f7f7f7;
-              border-radius: 10px;
-            }
-            .button {
-              display: inline-block;
-              background-color: #3085d6;
-              color: #ffffff;
-              padding: 10px 20px;
-              text-decoration: none;
-              border-radius: 5px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <p>Hello ${registration.firstName},</p>
-            <p>Your account has been approved. Please click the following button to login:</p>
-            <a href="${loginLink}" class="button">Login</a>
-            <p>Your default password is: ${generatedPassword}</p>
-            <p>Please verify your account by clicking the button below:</p>
-            <a href="${emailVerificationLink}" class="button">Verify Account</a>
-            <p>Please change your password after logging in. Thank you!</p>
-          </div>
-        </body>
-        </html>
-        `;
-  
-        await addDoc(collection(db, "mail"), {
-          to: user.email,
-          message: {
-            subject: "Welcome to PLMM Tuition Centre",
-            html: emailBody,
-          },
-        });
-  
+        const user = result.data.userCredential;
+        saveStudentInformation(user);
+        
         Swal.fire({
           icon: 'success',
           title: 'Success',
@@ -201,57 +133,54 @@ function CardUsersRegistration() {
     }
   };
   
-  
-  
-
   const saveStudentInformation = async (parentId) => {
     const childrenIds = [];
-    console.log("Registration: ",registration)
-    registration.student.forEach(async (student, index) => {
-      const studentDocId = `student_${parentId}_${index}`; // Generate custom ID
-      const studentDocRef = doc(db, "students", studentDocId);
-
-      // Map selected course objects to their IDs
-      const courseIds = student.registeredCourses.map((course) => course);
-
-      const updatedStudent = {
-        ...student,
-        registeredCourses: courseIds,
-        parentId: parentId,
-      };
-
-      try {
-        childrenIds.push(studentDocId);
-        await setDoc(studentDocRef, updatedStudent);
-        toast.success(`Student ${index + 1} information saved successfully.`);
-      } catch (error) {
-        toast.error(
-          `Error saving student ${index + 1} information: ${error.message}`
-        );
-      }
-
-      // Update class collection with new studentID
-      try {
-        console.log("CLASS: ", courseIds)
-        await updateDoc(doc(db, "class", courseIds), {
-          studentID: [childrenIds],
-        });
-        toast.success("Student IDs updated successfully in class collection.");
-      } catch (error) {
-        toast.error(
-          `Error updating student IDs in class collection: ${error.message}`
-        );
-      }
-    });
-
+  
     try {
+      for (let index = 0; index < registration.student.length; index++) {
+        const student = registration.student[index];
+        const studentDocId = `student_${parentId}_${index}`;
+        const studentDocRef = doc(db, "students", studentDocId);
+  
+        // Map selected course objects to their IDs
+        const courseIds = student.registeredCourses.map((course) => course);
+  
+        const updatedStudent = {
+          ...student,
+          registeredCourses: courseIds,
+          parentId: parentId,
+        };
+  
+        // Save student information
+        await setDoc(studentDocRef, updatedStudent);
+        childrenIds.push(studentDocId);
+        toast.success(`Student ${index + 1} information saved successfully.`);
+  
+        // Update class collection with new student IDs
+        for (const courseId of courseIds) {
+          const classDocRef = doc(db, "class", courseId);
+          const classDoc = await getDoc(classDocRef);
+  
+          if (classDoc.exists()) {
+            const classData = classDoc.data();
+            const updatedStudentIds = classData.studentID ? [...classData.studentID, studentDocId] : [studentDocId];
+            await updateDoc(classDocRef, { studentID: updatedStudentIds });
+            toast.success(`Student ID updated successfully in class collection for course: ${courseId}`);
+          } else {
+            console.error(`Class document not found for course: ${courseId}`);
+            toast.error(`Class document not found for course: ${courseId}`);
+          }
+        }
+      }
+  
+      // Save children IDs for parent
       await setDoc(doc(db, "parent", parentId), { children: childrenIds });
     } catch (error) {
-      toast.error(
-        `Error saving children IDs for parent ${parentId}: ${error.message}`
-      );
+      console.error("Error saving student information:", error.message);
+      toast.error(`Error saving student information: ${error.message}`);
     }
   };
+  
 
   const handleRejected = async () => {
     // Display a confirmation dialog using SweetAlert

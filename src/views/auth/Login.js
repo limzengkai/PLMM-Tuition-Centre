@@ -2,6 +2,7 @@ import React, { useContext, useState } from "react";
 import { db } from "../../config/firebase";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../config/context/AuthContext";
+import Swal from 'sweetalert2';
 import { doc, getDoc } from "firebase/firestore";
 
 export default function Login() {
@@ -17,28 +18,41 @@ export default function Login() {
     e.preventDefault();
     setError(false);
     setLoading(true);
+  
     try {
       const userCredential = await logIn(email, password);
       const user = userCredential.user;
-      // Proceed with the rest of the login process
+      
       if (user) {
         const userRoleDoc = await getDoc(doc(db, "users", user.uid));
+        
         if (userRoleDoc.exists()) {
           const userData = userRoleDoc.data();
-          // Directly redirect to the dashboard based on the user's role
           redirectBasedOnRole(userData.role);
-          return; // Exit the function to prevent further execution
+          return;
         }
       }
-      // If user role is not determined, default to "/"
       navigate("/");
     } catch (error) {
-      console.error("Login error:", error);
-      setError(true); // Set error state to display error message
-    } finally {
       setLoading(false);
+     
+      // Handle different login errors
+      if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
+        setError("Invalid email or password");
+      } else if (error.code === "auth/user-disabled") {
+        Swal.fire({
+          icon: 'error',
+          title: 'Account Disabled',
+          text: 'Your account has been disabled. Please contact admin via a call at 016-5165066.',
+          footer: '<button><a href="https://api.whatsapp.com/send?phone=60179533050&text=Hello,%20I%20need%20help%20with%20my%20account%20on%20your%20website target="_blank" ">Click here to contact admin via WhatsApp</a></button>'
+        });
+        setError("Your account has been disabled");
+      } else {
+        setError("An unexpected error occurred. Please try again later");
+      }
     }
   };
+  
 
   const redirectBasedOnRole = (role) => {
     switch (role) {
@@ -91,7 +105,7 @@ export default function Login() {
               </div>
               {error && (
                 <div className="text-red-500 text-center">
-                  <h1>Wrong Email or Password</h1>
+                  <h1>{error}</h1>
                 </div>
               )}
               <form>

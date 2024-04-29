@@ -1,6 +1,6 @@
 import React from "react";
 import { Document, Page, StyleSheet, Text, View, Image, PDFViewer, pdf } from "@react-pdf/renderer";
-import logo from "../../../assets/img/PLMM Tuition Centre.jpg";
+import logo from "../../assets/img/PLMM Tuition Centre.jpg";
 
 
 const styles = StyleSheet.create({
@@ -222,7 +222,7 @@ const InvoiceModal = ({ isOpen, onClose, students, users, fees }) => {
             <View style={styles.flexContainer}>
               <View style={[styles.section, styles.TableFirstContainer]}></View>
               <Text style={[styles.section, styles.TableThirdContainer]}>Paid Amount: </Text>
-              <Text style={[styles.section, styles.TableFourthContainer]}>RM {fees.feeDetail.paidAmount}</Text>
+              <Text style={[styles.section, styles.TableFourthContainer]}>RM {(fees.feeDetail.paidAmount).toFixed(2)}</Text>
             </View>
 
             <View style={styles.flexContainer}>

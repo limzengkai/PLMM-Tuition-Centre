@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../../config/firebase";
-import { getDocs, collection} from "firebase/firestore";
+import { getDocs, collection, query, where} from "firebase/firestore";
 
 // components
 import CardAdminClasses from "../../components/Cards/AdminCard/CardAdminClasses";
@@ -8,7 +8,13 @@ import CardLoading from "../../components/Cards/CardLoading";
 
 async function fetchClassData() {
   try {
-    const classCollectionRef = collection(db, "class");
+    const classCollectionRef = collection(db, "class")
+
+    // const classCollectionRef = query(
+    //   collection(db, "class"),
+    //   where("status", "==", true)
+    // );
+    
     const classSnapshot = await getDocs(classCollectionRef); // Fetch all class documents
     
     const data = [];

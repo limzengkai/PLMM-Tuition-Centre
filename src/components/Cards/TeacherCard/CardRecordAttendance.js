@@ -31,7 +31,12 @@ function CardRecordAttendance({ color }) {
   });
   const [editedDate, setEditedDate] = useState(new Date());
   const [editedStartTime, setEditedStartTime] = useState(new Date());
-  const [editedEndTime, setEditedEndTime] = useState(new Date());
+  const [editedEndTime, setEditedEndTime] = useState(() => {
+    const now = new Date();
+    const later = new Date(now);
+    later.setHours(now.getHours() + 2);
+    return later;
+  });
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
