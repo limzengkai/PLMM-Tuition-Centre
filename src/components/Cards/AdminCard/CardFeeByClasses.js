@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { collection, query, where, getDocs, addDoc, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { db } from "../../../config/firebase";
 import CardLoading from "../CardLoading";
 
@@ -11,7 +19,7 @@ function CardFeeByClasses() {
   const [fees, setFees] = useState([]);
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const location = useLocation();
 
   useEffect(() => {
@@ -19,11 +27,17 @@ function CardFeeByClasses() {
       try {
         if (!isFetch) {
           const studentsSnapshot = await getDocs(collection(db, "students"));
-          const students = studentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          const students = studentsSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
           setStudents(students);
 
           const classesSnapshot = await getDocs(collection(db, "class"));
-          const classes = classesSnapshot.docs.map(doc => ({id:doc.id, ...doc.data()}));
+          const classes = classesSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
           setClasses(classes);
 
           const feesSnapshot = await getDocs(collection(db, "fees"));
@@ -31,14 +45,20 @@ function CardFeeByClasses() {
           for (const feeDoc of feesSnapshot.docs) {
             const feeData = feeDoc.data();
             feeData.DueDate = feeData.DueDate.toDate();
-            const feeSubcollectionSnapshot = await getDocs(collection(feeDoc.ref, "Classes"));
-            const feeSubcollection = feeSubcollectionSnapshot.docs.map(subDoc => subDoc.data());
+            const feeSubcollectionSnapshot = await getDocs(
+              collection(feeDoc.ref, "Classes")
+            );
+            const feeSubcollection = feeSubcollectionSnapshot.docs.map(
+              (subDoc) => subDoc.data()
+            );
             feeData.Courses = feeSubcollection;
             fees.push(feeData);
           }
 
-          const mergedFees = fees.map(fee => {
-            const student = students.find(student => student.id === fee.StudentID);
+          const mergedFees = fees.map((fee) => {
+            const student = students.find(
+              (student) => student.id === fee.StudentID
+            );
             return { ...fee, student };
           });
           setFees(mergedFees);
@@ -61,27 +81,35 @@ function CardFeeByClasses() {
       const currentDate = new Date();
       const currentMonth = currentDate.getMonth() + 1;
       const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextMonthStart = new Date(currentDate.getFullYear(), nextMonth - 1, 1);
+      const nextMonthStart = new Date(
+        currentDate.getFullYear(),
+        nextMonth - 1,
+        1
+      );
 
       for (const student of students) {
         if (student.registeredCourses.length > 0) {
           for (const courseId of student.registeredCourses) {
-            const feeExists = fees.some(fee =>
-              fee.DueDate.getMonth() + 1 === nextMonthStart.getMonth() + 1 &&
-              fee.StudentID === student.id &&
-              fee.Courses.some(course => course.ClassId === courseId)
+            const feeExists = fees.some(
+              (fee) =>
+                fee.DueDate.getMonth() + 1 === nextMonthStart.getMonth() + 1 &&
+                fee.StudentID === student.id &&
+                fee.Courses.some((course) => course.ClassId === courseId)
             );
 
-            if (!feeExists) { 
+            if (!feeExists) {
               return false;
             }
           }
         }
       }
-      
+
       return true;
     } catch (error) {
-      console.error("Error checking if fees for next month are created:", error);
+      console.error(
+        "Error checking if fees for next month are created:",
+        error
+      );
       throw error;
     }
   };
@@ -91,15 +119,20 @@ function CardFeeByClasses() {
       const currentDate = new Date();
       const currentMonth = currentDate.getMonth() + 1;
       const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
-      const nextMonthStart = new Date(currentDate.getFullYear(), nextMonth - 1, 1);
-  
+      const nextMonthStart = new Date(
+        currentDate.getFullYear(),
+        nextMonth - 1,
+        1
+      );
+
       for (const student of students) {
         if (student.registeredCourses.length > 0) {
           for (const courseId of student.registeredCourses) {
-            const feeExists = fees.some(fee =>
-              fee.DueDate.getMonth() + 1 === nextMonthStart.getMonth() + 1 &&
-              fee.StudentID === student.id &&
-              fee.CourseID === courseId
+            const feeExists = fees.some(
+              (fee) =>
+                fee.DueDate.getMonth() + 1 === nextMonthStart.getMonth() + 1 &&
+                fee.StudentID === student.id &&
+                fee.CourseID === courseId
             );
             if (!feeExists) {
               await generateFeesForStudent(student.id, nextMonthStart);
@@ -111,12 +144,16 @@ function CardFeeByClasses() {
       setIsFeeGenerated(true);
     } catch (error) {
       console.error("Error generating fees for next month:", error);
-      alert("An error occurred while generating fees for next month. Please try again.");
+      alert(
+        "An error occurred while generating fees for next month. Please try again."
+      );
     }
   };
 
-  const filteredClass = classes.filter(classItem => {
-    return classItem.CourseName.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredClass = classes.filter((classItem) => {
+    return classItem.CourseName.toLowerCase().includes(
+      searchTerm.toLowerCase()
+    );
   });
 
   const generateFeesForStudent = async (studentId, nextMonthStartTimestamp) => {
@@ -128,8 +165,9 @@ function CardFeeByClasses() {
       }
       const studentData = studentDocSnapshot.data();
 
-      const existingFeeQuery = query(collection(db, "fees"), 
-        where("DueDate", "==", nextMonthStartTimestamp), 
+      const existingFeeQuery = query(
+        collection(db, "fees"),
+        where("DueDate", "==", nextMonthStartTimestamp),
         where("StudentID", "==", studentId)
       );
       const existingFeeSnapshot = await getDocs(existingFeeQuery);
@@ -150,7 +188,7 @@ function CardFeeByClasses() {
 
       for (const courseId of studentData.registeredCourses) {
         const existingCourseQuery = query(
-          collection(newDocRef, "Classes"), 
+          collection(newDocRef, "Classes"),
           where("ClassId", "==", courseId)
         );
         const existingCourseSnapshot = await getDocs(existingCourseQuery);
@@ -164,17 +202,22 @@ function CardFeeByClasses() {
             const feeAmount = courseData.fee;
 
             const classesData = [
-              {Description: `Fee for ${courseData.CourseName}`, FeeAmount: feeAmount}
-            ]
-            const descriptions = classesData.map(item => item.Description);
-            const feeAmounts = classesData.map(item => Number(item.FeeAmount));
-            const Quantity = [Number(1)]
+              {
+                Description: `Fee for ${courseData.CourseName}`,
+                FeeAmount: feeAmount,
+              },
+            ];
+            const descriptions = classesData.map((item) => item.Description);
+            const feeAmounts = classesData.map((item) =>
+              Number(item.FeeAmount)
+            );
+            const Quantity = [Number(1)];
 
             await addDoc(collection(newDocRef, "Classes"), {
               ClassId: courseId,
               Descriptions: descriptions,
               FeeAmounts: feeAmounts,
-              Quantity: Quantity
+              Quantity: Quantity,
             });
           } else {
             console.log(`Course with ID ${courseId} does not exist.`);
@@ -194,12 +237,17 @@ function CardFeeByClasses() {
       ) : (
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center mb-4 font-bold text-xl">
-            <Link to="/admin/fee" className="text-blue-500 hover:underline">Fee Payment Management</Link>
+            <Link to="/admin/fee" className="text-blue-500 hover:underline">
+              Fee Payment Management
+            </Link>
             <span className="mx-2">&nbsp;/&nbsp;</span>
             <span className="text-gray-500">Class List</span>
           </div>
           <div className="flex items-center mb-4">
-            <label htmlFor="search" className="text-sm font-medium text-gray-700 mr-2">
+            <label
+              htmlFor="search"
+              className="text-sm font-medium text-gray-700 mr-2"
+            >
               Search by Name:
             </label>
             <input
@@ -234,9 +282,9 @@ function CardFeeByClasses() {
                 Class List
               </Link>
               <Link
-                to="/admin/fee/history"
+                to="/admin/fee/payment-history"
                 className={`rounded-r-lg font-bold py-2 px-4 ${
-                  location.pathname === "/admin/fee/x"
+                  location.pathname === "/admin/fee/payment-history"
                     ? "bg-blue-500 text-white hover:text-lightBlue-100"
                     : "text-black hover:text-white hover:bg-blue-500"
                 }`}
@@ -255,7 +303,9 @@ function CardFeeByClasses() {
               <button
                 onClick={generateFeesForNextMonth}
                 className={`py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md ${
-                  isFeeGenerated ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+                  isFeeGenerated
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 }`}
                 disabled={isFeeGenerated}
               >
@@ -268,25 +318,44 @@ function CardFeeByClasses() {
             <table className="w-full bg-transparent border-collapse">
               <thead>
                 <tr>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">Class Name</th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">Academic Level</th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">Registered Number</th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">Class Fee</th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">Action</th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    Class Name
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    Academic Level
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    Registered Number
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    Class Fee
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredClass.map((className, index) => (
                   <tr key={index}>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">{className.CourseName}</td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">{className.academicLevel}</td>
                     <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {className.studentID && className.studentID.length} / {className.MaxRegisteredStudent}
+                      {className.CourseName}
                     </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">RM {className.fee}</td>
                     <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      <Link to={`/admin/fee/classes/view/${className.id}`} 
-                        className="mr-3 text-white rounded-full font-bold py-2 px-4 bg-blue-500 hover:bg-blue-600">
+                      {className.academicLevel}
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      {className.studentID && className.studentID.length} /{" "}
+                      {className.MaxRegisteredStudent}
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      RM {className.fee}
+                    </td>
+                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                      <Link
+                        to={`/admin/fee/classes/view/${className.id}`}
+                        className="mr-3 text-white rounded-full font-bold py-2 px-4 bg-blue-500 hover:bg-blue-600"
+                      >
                         View
                       </Link>
                     </td>

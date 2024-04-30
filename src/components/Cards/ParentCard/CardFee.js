@@ -17,10 +17,8 @@ import { Link } from "react-router-dom";
 function CardFee({ color }) {
   const { currentUser } = useContext(AuthContext);
   const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
   const [feePayments, setFeePayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [students, setStudents] = useState([]);
   const [sortConfig, setSortConfig] = useState({
     key: null,
     direction: "ascending",
@@ -44,8 +42,6 @@ function CardFee({ color }) {
             ...doc.data(),
           });
         });
-
-        setStudents(studentData);
 
         const fee = [];
         await Promise.all(
@@ -100,16 +96,6 @@ function CardFee({ color }) {
     fetchData();
   }, [currentUser.uid]);
 
-  const handlePayment = (id) => {
-    addDoc(collection(db, "mail"), {
-      to: "limzengkai96@gmail.com",
-      message: {
-        subject: "Payment Notification",
-        text: "Payment has been made for the fee payment with ID: " + id,
-        html: "The Payment with " + id + "has been made for the fee payment",
-      },
-    });
-  };
 
   const handleSort = (key) => {
     if (sortConfig.key === key) {

@@ -87,6 +87,7 @@ export default function Admin() {
             <Route path="users" element={<Users />} />
             <Route path="users/registration/" element={<Users />} />
             <Route path="users/registration/:id" element={<UsersRegistrationView />} />
+            <Route path="users/registration/rejected" element={<Users />}/>
             <Route path="users/view/:id" element={<UsersManagementAction />} />
             <Route path="users/edit/:id" element={<UsersManagementAction />} />
             <Route path="users/add" element={<UsersManagementAction />} />
@@ -102,7 +103,7 @@ export default function Admin() {
             <Route path="fee/classes/view/:uid" element={<FeeClassesAction />} />
             <Route path="fee/classes/add" element={<FeeClassesAction />} />
             <Route path="fee/classes/:id" element={<FeeClassesAction />} />
-            <Route path="fee/paymenthistory" element={<FeeClassesAction />} />
+            <Route path="fee/payment-history" element={<FeeClassesAction />} />
 
             {/* Attendance Management Page */}
             <Route path="attendance" element={<Attendance />} />

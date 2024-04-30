@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, updateDoc } from "firebase/firestore";
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2"; // Import SweetAlert
@@ -120,8 +120,10 @@ function PaymentPage() {
         paymentStatus: true,
         paidAmount: total,
         paymentDate: new Date(),
+      }).then(async() => {
+
       });
-  
+ 
       // Display success message
       await Swal.fire({
         icon: "success",

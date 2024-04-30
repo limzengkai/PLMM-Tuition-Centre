@@ -184,7 +184,7 @@ function CardUsersRegistration() {
 
   const handleRejected = async () => {
     // Display a confirmation dialog using SweetAlert
-    const confirmResult = await Swal.fire({
+    const { value: rejectReason, isConfirmed } = await Swal.fire({
       title: "Are you sure?",
       text: "You won't be able to revert this!",
       icon: "warning",
@@ -193,13 +193,21 @@ function CardUsersRegistration() {
       cancelButtonColor: "#d33",
       confirmButtonText: "Yes, reject it!",
       cancelButtonText: "Cancel",
+      input: 'text', // Add input field for reason
+      inputPlaceholder: 'Enter reason for rejection', // Placeholder for the input field
+      inputValidator: (value) => {
+        if (!value) {
+          return 'You need to enter a reason for rejection'; // Validate that reason is entered
+        }
+      }
     });
-
-    // If the user confirms the rejection
-    if (confirmResult.isConfirmed) {
+  
+    // If the user confirms the rejection and entered a reason
+    if (isConfirmed && rejectReason) {
       try {
         await updateDoc(doc(db, "registration", id), {
           status: false,
+          rejectReason: rejectReason // Save rejection reason in database
         });
         navigate("/admin/users/registration"); // Navigate to the specified route
         // Display a success message
@@ -214,6 +222,7 @@ function CardUsersRegistration() {
       }
     }
   };
+  
   return (
     <>
       {loading ? (

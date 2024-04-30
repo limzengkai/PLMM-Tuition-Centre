@@ -3,8 +3,9 @@ import React, { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { db } from "../../../config/firebase";
 import CardLoading from "../CardLoading";
+import Swal from "sweetalert2";
 
-function CardUsersRegistration() {
+function CardUsersRegistrationRejected() {
   // State to manage the selected function (Management or Registration)
   const [selectedFunction, setSelectedFunction] = useState("management");
   // State to manage the search term
@@ -19,7 +20,7 @@ function CardUsersRegistration() {
         // Construct the query to fetch registrations with status true and ordered by registrationDate
         const registrationQuery = query(
           collection(db, "registration"),
-          where("status", "==", true),
+          where("status", "==", false),
           orderBy("registrationDate", "asc")
         );
 
@@ -35,7 +36,6 @@ function CardUsersRegistration() {
         // Set the fetched registrations to the state
         setRegistration(registrations);
         setLoading(false);
-        // Log the fetched registrations to the console
         console.log(registrations);
       } catch (error) {
         // Handle any errors that occur during data fetching
@@ -47,6 +47,14 @@ function CardUsersRegistration() {
     // Call the fetchRegistration function when the component mounts
     fetchRegistration();
   }, []);
+
+  const handleViewReason = (rejectReason) => {
+    Swal.fire({
+      title: "Rejection Reason",
+      text: rejectReason,
+      icon: "info",
+    });
+  };
 
   // Update selected function based on URL path
   useEffect(() => {
@@ -132,9 +140,9 @@ function CardUsersRegistration() {
                 to="/admin/users/registration"
                 className={
                   " rounded-l-lg font-bold py-2 px-4 m-0" +
-                  (location.pathname.includes("/admin/users/registration")
+                  (location.pathname ==="/admin/users/registration"
                     ? "  bg-blue-100 text-black hover:text-lightBlue-100"
-                    : " text-black  hover:bg-blue-100 hover:text-white")
+                    : " text-black  hover:bg-blue-100 ")
                 }
                 onClick={() => setSelectedFunction("registration")}
               >
@@ -147,7 +155,7 @@ function CardUsersRegistration() {
                   " rounded-r-lg font-bold py-2 px-4" +
                   (location.pathname === "/admin/users/registration/rejected"
                   ? "  bg-blue-100 text-black hover:text-lightBlue-100"
-                  : " text-black  hover:bg-blue-100 hover:text-black")
+                  : " text-black  hover:bg-blue-100 ")
                 }
 
                 onClick={() => setSelectedFunction("registration")}
@@ -197,6 +205,7 @@ function CardUsersRegistration() {
                           <div key={index}>
                             {index + 1}. {student.firstName} {student.lastName}
                           </div>
+                          
                         );
                       })}
                     </td>
@@ -213,6 +222,12 @@ function CardUsersRegistration() {
                       >
                         View
                       </Link>
+                      <button
+                        onClick={() => {handleViewReason(user.rejectReason)}}
+                        className="mr-3 text-white rounded-full font-bold py-2 px-4 bg-red-500 hover:bg-blue-600"
+                      >
+                        Show Reason
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -225,4 +240,4 @@ function CardUsersRegistration() {
   );
 }
 
-export default CardUsersRegistration;
+export default CardUsersRegistrationRejected;

@@ -145,9 +145,9 @@ const getOutstandingFeeAndLastestFee = (studentId) => {
           Class List
         </Link>
         <Link
-          to="/admin/fee/history"
+          to="/admin/fee/payment-history"
           className={`rounded-r-lg font-bold py-2 px-4 ${
-            location.pathname === "/admin/fee/classes"
+            location.pathname === "/admin/fee/payment-history"
               ? "bg-blue-500 text-white hover:text-lightBlue-100"
               : "text-black hover:text-white hover:bg-blue-500"
           }`}

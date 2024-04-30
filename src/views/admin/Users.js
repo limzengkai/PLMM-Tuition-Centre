@@ -7,6 +7,7 @@ import { getDocs, collection, orderBy, query } from "firebase/firestore";
 import CardUsersManagement from "../../components/Cards/AdminCard/CardUsersManagement";
 import CardUsersRegistration from "../../components/Cards/AdminCard/CardUsersRegistration";
 import CardLoading from "../../components/Cards/CardLoading";
+import CardUsersRegistrationRejected from "../../components/Cards/AdminCard/CardUsersRegistrationRejected";
 
 async function fetchUsersData() {
   try {
@@ -45,12 +46,12 @@ export default function Users() {
         <div className="relative flex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-lg rounded">
           {loading ? (
             <CardLoading loading={loading} />
+          ) : location.pathname === "/admin/users" ? (
+            <CardUsersManagement users={users} />
+          ) : location.pathname === "/admin/users/registration" ? (
+            <CardUsersRegistration />
           ) : (
-            location.pathname === "/admin/users" ? (
-              <CardUsersManagement users={users} />
-            ) : (
-              <CardUsersRegistration />
-            )
+            <CardUsersRegistrationRejected />
           )}
         </div>
       </div>
