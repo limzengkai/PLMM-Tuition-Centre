@@ -3,20 +3,19 @@ import { AuthContext } from "../../../config/context/AuthContext";
 import PropTypes from "prop-types";
 import { db } from "../../../config/firebase";
 import { Link } from "react-router-dom";
-import CardPagination from "../CardPagination";
 import CardLoading from "../CardLoading";
 import {
   collection,
   getDocs,
   query,
   where,
-  deleteDoc,
-  doc,
 } from "firebase/firestore";
+import MUIDataTable from "mui-datatables";
+import { createTheme } from "@mui/material/styles";
+import { ThemeProvider } from "@emotion/react";
 
 function CardTeacherClasses({ color }) {
   const { currentUser } = useContext(AuthContext);
-  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
 
@@ -60,14 +59,69 @@ function CardTeacherClasses({ color }) {
     fetchClasses();
   }, [currentUser]);
 
-  const classesPerPage = 5;
-  const indexOfLastClass = currentPage * classesPerPage;
-  const indexOfFirstClass = indexOfLastClass - classesPerPage;
-  const currentClasses = classes.slice(indexOfFirstClass, indexOfLastClass);
-  const totalPages = Math.ceil(classes.length / classesPerPage);
+  const columns = [
+    { name: "Class" },
+    { name: "Academic Level" },
+    { name: "Register No", options: { filter: false, sort: false } },
+    { name: "Action", options: { filter: false, sort: false } },
+  ];
 
+  const data = classes.map((cls) => [
+    cls.CourseName,
+    cls.academicLevel,
+    `${cls.studentID ? cls.studentID.length : 0} / ${
+      cls.MaxRegisteredStudent
+    }`,
+    <div className="flex">
+      <Link
+        to={`/teacher/classes/view/${cls.id}`}
+        className="mr-3 text-white rounded-full font-bold py-2 px-4 bg-blue-500 hover:bg-blue-600"
+      >
+        View
+      </Link>
+      <Link
+        to={`/teacher/classes/grade/${cls.id}`}
+        className="text-white rounded-full font-bold py-2 px-4 bg-green-500"
+      >
+        Grade
+      </Link>
+    </div>,
+  ]);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const getMuiTheme = () =>
+    createTheme({
+      typography: {
+        fontFamily: "Poppins",
+      },
+      components: {
+        MUIDataTableHeadCell: {
+          fixedHeaderCommon: {
+            backgroundColor: "transparent"
+          },
+          styleOverrides: {
+            root: {
+              fontSize: "12px", // Adjusted font size
+              textAlign: "center",
+            },
+          },
+        },
+        MUIDataTableBodyCell: {
+          styleOverrides: {
+            root: {
+              fontSize: "12px", // Adjusted font size
+            },
+          },
+        },
+      },
+    });
+
+  const options = {
+    responsive: "standard",
+    selectableRows: "none",
+    downloadOptions: { excludeColumns: [0, 3] },
+    rowsPerPage: 5,
+    rowsPerPageOptions: [5, 10, 20],
+  };
 
   return (
     <>
@@ -86,66 +140,14 @@ function CardTeacherClasses({ color }) {
             </span>
           </div>
           <div className="block w-full overflow-x-auto">
-            <table className="w-full bg-transparent border-collapse">
-              <thead>
-                <tr>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    No
-                  </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    Class
-                  </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    Academic Level
-                  </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    Register No
-                  </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentClasses.map((cls, index) => (
-                  <tr key={cls.id}>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {index + 1}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {cls.CourseName}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {cls.academicLevel}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {cls.studentID && cls.studentID.length} /{" "}
-                      {cls.MaxRegisteredStudent}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      <Link
-                        to={`/teacher/classes/view/${cls.id}`}
-                        className="mr-3 text-black rounded-full font-bold py-2 px-4 bg-blue-500"
-                      >
-                        View
-                      </Link>
-                      <Link
-                        to={`/teacher/classes/grade/${cls.id}`}
-                        className="mr-3 text-white rounded-full font-bold py-2 px-4 bg-green-500"
-                      >
-                        Grade
-                      </Link>
-                  </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ThemeProvider theme={getMuiTheme()}>
+              <MUIDataTable
+                data={data}
+                columns={columns}
+                options={options}
+              />
+            </ThemeProvider>
           </div>
-          <CardPagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            paginate={paginate}
-          />
         </div>
       )}
     </>

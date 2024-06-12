@@ -1,0 +1,186 @@
+/* Base styles */
+.timetable-container {
+    position: relative;
+    overflow: auto;
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.time-column {
+    width: 55px;
+    border-right: 1px solid #dee2e6;
+    text-align: center;
+    position: relative;
+    background-color: #e9ecef;
+    border-radius: 8px 0 0 8px;
+}
+
+.time-slot {
+    height: 60px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.time-slot-title {
+    height: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    position: relative;
+    box-sizing: border-box;
+    background-color: #343a40;
+    color: #ffffff;
+    border-radius: 8px 0 0 0;
+}
+
+.time-slot-title::before {
+    content: "";
+    position: absolute;
+    width: 70px;
+    height: 1px;
+    background-color: #ffffff;
+    top: 12px;
+    left: 5px;
+    transform: rotate(45deg);
+    transform-origin: left top;
+}
+
+.day-text {
+    position: absolute;
+    top: 5px;
+    left: 20px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.time-text {
+    position: absolute;
+    bottom: 5px;
+    right: 20px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.timetable {
+    display: flex;
+    flex: 1;
+    position: relative;
+    overflow-x: auto;
+}
+
+.day-column {
+    flex: 1;
+    border: 1px solid #ddd;
+    position: relative;
+    padding-top: 30px;
+    min-width: 120px;
+    /* Ensure columns don't shrink too much */
+}
+
+.day-header {
+    text-align: center;
+    margin: 0;
+    padding: 10px 5px;
+    background-color: #495057;
+    border: 1px solid #dee2e6;
+    position: absolute;
+    top: 0;
+    height: 60px;
+    width: 100%;
+    z-index: 1;
+    color: #ffffff;
+}
+
+.timetable-entry {
+    position: absolute;
+    width: 100%;
+    border: 1px solid #495057;
+    background-color: #6c757d;
+    padding: 10px;
+    border-radius: 8px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    color: #ffffff;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.entry-subject {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.entry-time {
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .timetable-container {
+        padding: 10px;
+    }
+
+    .time-column {
+        width: 45px;
+    }
+
+    .day-column {
+        min-width: 100px;
+    }
+
+    .time-slot {
+        height: 50px;
+    }
+
+    .day-header,
+    .timetable-entry {
+        padding: 5px;
+    }
+
+    .entry-subject {
+        font-size: 12px;
+    }
+
+    .entry-time {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .timetable-container {
+        padding: 5px;
+    }
+
+    .time-column {
+        width: 40px;
+    }
+
+    .day-column {
+        min-width: 90px;
+    }
+
+    .time-slot {
+        height: 45px;
+    }
+
+    .day-header,
+    .timetable-entry {
+        padding: 4px;
+    }
+
+    .entry-subject {
+        font-size: 10px;
+    }
+
+    .entry-time {
+        font-size: 8px;
+    }
+}

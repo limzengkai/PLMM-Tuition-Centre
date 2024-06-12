@@ -3,9 +3,9 @@ import { useLocation } from "react-router-dom";
 
 // components
 
-import CardAdminAttendanceView from "../../components/Cards/AdminCard/CardAdminAttendanceView";
-import CardAdminAttendanceRecord from "../../components/Cards/AdminCard/CardAdminAttendanceRecord";
-import CardAdminAttendanceEdit from "../../components/Cards/AdminCard/CardAdminAttendanceEdit";
+import CardAdminAttendanceView from "../../components/Cards/AdminCard/Attendance/CardAdminAttendanceView";
+import CardAdminAttendanceRecord from "../../components/Cards/AdminCard/Attendance/CardAdminAttendanceRecord";
+import CardAdminAttendanceEdit from "../../components/Cards/AdminCard/Attendance/CardAdminAttendanceEdit";
 
 export default function FeeClassesAction() {
   const location = useLocation();

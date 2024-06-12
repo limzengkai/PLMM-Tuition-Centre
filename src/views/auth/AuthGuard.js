@@ -1,8 +1,5 @@
-import React, { useContext, useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useContext, useEffect } from "react";
 import { AuthContext } from "../../config/context/AuthContext";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../config/firebase"; // Import db for Firestore operations
 import { useNavigate } from "react-router-dom"; // Import useNavigate hook
 
 const AuthGuard = ({ children }) => {

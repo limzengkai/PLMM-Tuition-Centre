@@ -1,0 +1,12 @@
+[33m375f0aa[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: pull: Merge made by the 'ort' strategy.
+[33m64bc938[m HEAD@{1}: commit: 202040403 8:52pm Update before Start to do: Add Rejected Registrtaion Page
+[33mbfa1c77[m HEAD@{2}: commit: New Commit
+[33m94fb909[m HEAD@{3}: reset: moving to 94fb909
+[33m397d5aa[m HEAD@{4}: reset: moving to HEAD~
+[33m94fb909[m HEAD@{5}: rebase (finish): returning to refs/heads/main
+[33m94fb909[m HEAD@{6}: commit: Added new files for components, views, layouts, configurations, and styles
+[33m397d5aa[m HEAD@{7}: rebase (start): checkout origin/main
+[33md5e28da[m HEAD@{8}: reset: moving to HEAD
+[33md5e28da[m HEAD@{9}: reset: moving to HEAD
+[33md5e28da[m HEAD@{10}: reset: moving to HEAD
+[33md5e28da[m HEAD@{11}: commit (initial): All the source code file

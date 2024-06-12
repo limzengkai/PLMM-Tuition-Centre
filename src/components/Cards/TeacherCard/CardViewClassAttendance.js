@@ -3,7 +3,6 @@ import { AuthContext } from "../../../config/context/AuthContext";
 import { Link, useParams } from "react-router-dom";
 import PropTypes from "prop-types";
 import { db } from "../../../config/firebase";
-import CardPagination from "../CardPagination";
 import CardLoading from "../CardLoading";
 import {
   query,
@@ -14,18 +13,19 @@ import {
   limit,
   doc,
   orderBy,
+  deleteDoc,
 } from "firebase/firestore";
+import MUIDataTable from "mui-datatables";
+import { createTheme } from "@mui/material/styles";
+import { ThemeProvider } from "@emotion/react";
+import Swal from "sweetalert2";
 
 function CardViewClassAttendance({ color }) {
   const { id } = useParams();
   const { currentUser } = useContext(AuthContext);
-  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [students, setStudents] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
   const [classData, setClassData] = useState(null); // Define classData state
-  const classesPerPage = 5;
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
@@ -37,23 +37,26 @@ function CardViewClassAttendance({ color }) {
           limit(1)
         );
         const teacherSnapshot = await getDocs(teacherQuery);
-  
+
         if (!teacherSnapshot.empty) {
-          const teacherData = teacherSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }))[0];
-  
-          const teacherID = teacherData.id;
-  
           // Query the class document
           const classDoc = doc(db, "class", id);
           const classSnap = await getDoc(classDoc);
-  
+
           if (classSnap.exists()) {
             const classData = { id: classSnap.id, ...classSnap.data() };
+
+            // fetch schedule data for each class
+            const scheduleQuery = collection(db, "class", id, "Schedule");
+
+            const scheduleSnapshot = await getDocs(scheduleQuery);
+            const scheduleData = scheduleSnapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            classData.scheduleData = scheduleData;
             setClassData(classData);
-  
+
             // Query the attendance collection for records related to the class
             const attendanceQuery = query(
               collection(db, "Attendance"),
@@ -62,76 +65,78 @@ function CardViewClassAttendance({ color }) {
               orderBy("StartTime", "desc")
             );
             const attendanceSnapshot = await getDocs(attendanceQuery);
-  
+
             const attendanceData = attendanceSnapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
-  
+
             // Fetch and assign student attendance data to corresponding attendance records
-            const updatedAttendanceData = await Promise.all(attendanceData.map(async (record) => {
-              const studentAttendanceQuery = query(
-                collection(db, "Attendance", record.id, "studentAttendance")
-              );
-              const studentAttendanceSnapshot = await getDocs(studentAttendanceQuery);
-              const studentAttendanceData = studentAttendanceSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              }));
-              record.studentAttendance = studentAttendanceData;
-              return record;
-            }));
-  
+            const updatedAttendanceData = await Promise.all(
+              attendanceData.map(async (record) => {
+                const studentAttendanceQuery = query(
+                  collection(db, "Attendance", record.id, "studentAttendance")
+                );
+                const studentAttendanceSnapshot = await getDocs(
+                  studentAttendanceQuery
+                );
+                const studentAttendanceData =
+                  studentAttendanceSnapshot.docs.map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                  }));
+                record.studentAttendance = studentAttendanceData;
+                return record;
+              })
+            );
+
             // Update state with attendance records
             setAttendanceRecords(updatedAttendanceData);
-            console.log("Attendance Data: ", updatedAttendanceData);
           } else {
             console.log("Class document not found");
           }
         } else {
           console.log("No teacher document found for the current user");
         }
-  
-        // Fetch student data
-        const studentRef = collection(db, "students");
-        const studentSnapshot = await getDocs(studentRef);
-        const studentData = studentSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setStudents(studentData);
+
         setLoading(false);
-        console.log("Student Data", studentData);
       } catch (error) {
         console.error("Error fetching attendance data:", error);
       }
     };
-  
+
     fetchAttendanceData();
   }, [id, currentUser.uid]);
 
-  // Filter attendance based on search term
-  const filteredAttendance = attendanceRecords
-    ? attendanceRecords.filter(
-        (record) =>
-          record.date &&
-          record.date.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : [];
+  useEffect(() => {
+    console.log(classData);
+  }, [classData]);
 
-  // Calculate indexes for pagination
-  const indexOfLastAttendance = currentPage * classesPerPage;
-  const indexOfFirstAttendance = indexOfLastAttendance - classesPerPage;
-  const currentAttendance = filteredAttendance.slice(
-    indexOfFirstAttendance,
-    indexOfLastAttendance
-  );
+  const deleteRecord = async (recordId) => {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to revert this!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+    });
 
-  // Change page
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  // Calculate total number of pages
-  const totalPages = Math.ceil(filteredAttendance.length / classesPerPage);
+    if (result.isConfirmed) {
+      try {
+        await deleteDoc(doc(db, "Attendance", recordId));
+        // Filter out the deleted record from the attendanceRecords state
+        setAttendanceRecords(
+          attendanceRecords.filter((record) => record.id !== recordId)
+        );
+        Swal.fire("Deleted!", "Your record has been deleted.", "success");
+      } catch (error) {
+        console.error("Error deleting attendance record:", error);
+        Swal.fire("Error!", "There was an error deleting the record.", "error");
+      }
+    }
+  };
 
   const getTime = (timestamp) => {
     const d = timestamp.toDate();
@@ -141,6 +146,78 @@ function CardViewClassAttendance({ color }) {
     const hourFormat = hours % 12 || 12;
     const minuteFormat = minutes < 10 ? `0${minutes}` : minutes;
     return `${hourFormat}:${minuteFormat} ${amOrPm}`;
+  };
+
+  const columns = [
+    { name: "Date" },
+    { name: "Start Time" },
+    { name: "End Time" },
+    { name: "Attend Number", options: { filter: false, sort: false } },
+    { name: "Action", options: { filter: false, sort: false } },
+  ];
+
+  const data = attendanceRecords.map((record) => [
+    record.Date.toDate().toLocaleDateString(),
+    getTime(record.StartTime),
+    getTime(record.EndTime),
+    `${record.studentAttendance.filter((student) => student.status).length} / ${
+      record.studentAttendance.length
+    }`,
+    <div className="flex">
+      <Link
+        to={`/teacher/attendance/class/${id}/view/${record.id}`}
+        className="mr-3 text-black rounded-full font-bold py-1 px-4 bg-blue-500"
+      >
+        View
+      </Link>
+      <Link
+        to={`/teacher/attendance/class/${id}/edit/${record.id}`}
+        className="mr-3 text-white rounded-full font-bold py-1 px-4 bg-green-500"
+      >
+        Edit
+      </Link>
+      <button
+        onClick={() => deleteRecord(record.id)}
+        className="text-white rounded-full font-bold py-1 px-4 bg-red-500"
+      >
+        Delete
+      </button>
+    </div>,
+  ]);
+
+  const getMuiTheme = () =>
+    createTheme({
+      typography: {
+        fontFamily: "Poppins",
+      },
+      components: {
+        MUIDataTableHeadCell: {
+          fixedHeaderCommon: {
+            backgroundColor: "transparent",
+          },
+          styleOverrides: {
+            root: {
+              fontSize: "12px", // Adjusted font size
+              textAlign: "center",
+            },
+          },
+        },
+        MUIDataTableBodyCell: {
+          styleOverrides: {
+            root: {
+              fontSize: "12px", // Adjusted font size
+            },
+          },
+        },
+      },
+    });
+
+  const options = {
+    responsive: "standard",
+    selectableRows: "none",
+    downloadOptions: { excludeColumns: [3] },
+    rowsPerPage: 5,
+    rowsPerPageOptions: [5, 10, 20],
   };
 
   return (
@@ -178,77 +255,29 @@ function CardViewClassAttendance({ color }) {
                     {classData && classData.studentID.length} /{" "}
                     {classData && classData.MaxRegisteredStudent}
                   </p>
-                  <p className="font-bold">
-                    Location: {classData && classData.location}
+                  <p className="font-bold mt-4">
+                    Schedule @ Location:
+                    {classData &&
+                      classData.scheduleData.map((schedule) => (
+                        <div key={schedule.id}>
+                          <p>
+                            {schedule.day} - {getTime(schedule.startTime)} -{" "}
+                            {getTime(schedule.endTime)} @ {schedule.location}
+                          </p>
+                        </div>
+                      ))}
                   </p>
                 </div>
               </div>
               <div className="block w-full overflow-x-auto">
-                <table className="w-full bg-transparent border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        No
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Date
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Start Time
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        End Time
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Attend Number
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {attendanceRecords.map((record, index) => (
-                      <tr key={record.id}>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          {index + 1}
-                        </td>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          {record.Date.toDate().toLocaleDateString()}
-                        </td>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          {getTime(record.StartTime)}
-                        </td>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          {getTime(record.EndTime)}
-                        </td>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          {record.studentAttendance.filter(student => student.status).length} / {record.studentAttendance.length}
-                        </td>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          <Link
-                            to={`/teacher/attendance/class/${id}/view/${record.id}`}
-                            className="mr-3 text-black rounded-full font-bold py-2 px-4 bg-blue-500"
-                          >
-                            View
-                          </Link>
-                          <Link
-                            to={`/teacher/attendance/class/${id}/edit/${record.id}`}
-                            className="text-white rounded-full font-bold py-2 px-4 bg-green-500"
-                          >
-                            Edit
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <ThemeProvider theme={getMuiTheme()}>
+                  <MUIDataTable
+                    data={data}
+                    columns={columns}
+                    options={options}
+                  />
+                </ThemeProvider>
               </div>
-              <CardPagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                paginate={paginate}
-              />
             </div>
           </div>
         </div>

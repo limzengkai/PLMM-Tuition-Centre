@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../../../config/context/AuthContext";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import PropTypes from "prop-types";
 import CardLoading from "../CardLoading";
 import { db } from "../../../config/firebase";
+import Swal from "sweetalert2";
 import {
   query,
   collection,
@@ -37,6 +38,7 @@ function CardRecordAttendance({ color }) {
     later.setHours(now.getHours() + 2);
     return later;
   });
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
@@ -61,26 +63,26 @@ function CardRecordAttendance({ color }) {
           if (classSnap.exists()) {
             const classData = { id: classSnap.id, ...classSnap.data() };
             setClassData(classData);
-              const studentQuery = query(
-                collection(db, "students"),
-                where("registeredCourses", "array-contains", id),
-                orderBy("firstName")
-              );
-              const studentSnapshot = await getDocs(studentQuery);
-              const studentData = studentSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              }));
-              setStudents(studentData);
-              attendanceData.studentAttendance = studentData.map((student) => ({
-                id: student.id,
-                studentName: `${student.firstName} ${student.lastName}`,
-                status: true,
-                comment: "",
-              }));
-              console.log("attendance data: ", attendanceData.studentAttendance)
-              console.log("Student Data", studentData);
-              setLoading(false);
+            const studentQuery = query(
+              collection(db, "students"),
+              where("registeredCourses", "array-contains", id),
+              orderBy("firstName")
+            );
+            const studentSnapshot = await getDocs(studentQuery);
+            const studentData = studentSnapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            setStudents(studentData);
+            attendanceData.studentAttendance = studentData.map((student) => ({
+              id: student.id,
+              studentName: `${student.firstName} ${student.lastName}`,
+              status: true,
+              comment: "",
+            }));
+            console.log("attendance data: ", attendanceData.studentAttendance);
+            console.log("Student Data " , studentData);
+            setLoading(false);
           } else {
             console.log("Class document not found");
           }
@@ -105,12 +107,8 @@ function CardRecordAttendance({ color }) {
     console.log("Updated Attendance Data", updatedAttendanceData);
   };
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
   const filteredAttendance =
-  attendanceData.studentAttendance && attendanceData.studentAttendance
+    attendanceData.studentAttendance && attendanceData.studentAttendance
       ? attendanceData.studentAttendance.filter((record) => {
           if (record.studentName) {
             return record.studentName
@@ -190,28 +188,73 @@ function CardRecordAttendance({ color }) {
         console.error("Invalid date or time values");
         return;
       }
-      console.log("Enter")
-      // Update Firestore document
-      const NewDoc = await addDoc(collection(db, "Attendance"), {
-        CourseID: id,
-        Date: dateObj,
-        StartTime: startTimeObj,
-        EndTime: endTimeObj,
+
+      // Show confirmation dialog
+      const result = await Swal.fire({
+        title: "Are you sure?",
+        text: "Are you sure you want to save attendance details?",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes, save it!",
       });
 
-      let newDocID = NewDoc.id;
-      console.log("Enter")
-      // Update student attendance details
-      attendanceData.studentAttendance.forEach(async (record) => {
-        await setDoc(doc(db,"Attendance",newDocID,"studentAttendance",record.id), {
-          status: record.status,
-          comment: record.comment,
+      if (result.isConfirmed) {
+        console.log("User confirmed, proceeding to save attendance details");
+
+        // Proceed with saving attendance details
+        const NewDoc = await addDoc(collection(db, "Attendance"), {
+          CourseID: id,
+          Date: dateObj,
+          StartTime: startTimeObj,
+          EndTime: endTimeObj,
         });
-      });
 
-      console.log("Attendance details updated successfully!");
+        let newDocID = NewDoc.id;
+        console.log("New attendance document created with ID:", newDocID);
+
+        const attendancePromises = attendanceData.studentAttendance.map(
+          (record) =>
+            setDoc(
+              doc(db, "Attendance", newDocID, "studentAttendance", record.id),
+              {
+                status: record.status,
+                comment: record.comment,
+              }
+            ).catch((error) => {
+              console.error(
+                `Error saving attendance for student ${record.id}:`,
+                error
+              );
+            })
+        );
+
+        await Promise.all(attendancePromises);
+
+        // Show success message
+        const swalResult = await Swal.fire({
+          title: "Success!",
+          text: "Attendance details saved successfully!",
+          icon: "success",
+          confirmButtonColor: "#3085d6",
+        });
+
+        if (swalResult.isConfirmed || swalResult.isDismissed) {
+          console.log("Navigating to the attendance record view page");
+          // Navigate to the attendance record view page
+          navigate(`/teacher/attendance/class/${id}/view/${newDocID}`);
+        }
+      }
     } catch (error) {
       console.error("Error updating attendance details:", error);
+      // Show error message
+      Swal.fire({
+        title: "Error!",
+        text: "Failed to save attendance details. Please try again.",
+        icon: "error",
+        confirmButtonColor: "#3085d6",
+      });
     }
   };
 
@@ -246,17 +289,6 @@ function CardRecordAttendance({ color }) {
                 <span className="text-gray-500">
                   Record {classData && classData.CourseName} Class Attendance
                 </span>
-              </div>
-              <div className="flex justify-between mx-8 mt-4 mb-2">
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Search by student name or ID"
-                    value={searchTerm}
-                    onChange={handleSearch}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500 mr-4"
-                  />
-                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="border rounded-lg p-2">
@@ -330,6 +362,8 @@ function CardRecordAttendance({ color }) {
                     timeIntervals={15}
                     timeCaption="Time"
                     dateFormat="h:mm aa"
+                    minTime={editedStartTime}
+                    maxTime={new Date().setHours(23, 59)}
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500 mt-1"
                   />
                 </div>

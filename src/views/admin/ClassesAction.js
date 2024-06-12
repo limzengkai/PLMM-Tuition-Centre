@@ -1,13 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useLocation } from "react-router-dom";
-import { db } from "../../config/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import { getDocs, collection} from "firebase/firestore";
 
 // components
 import CardAdminClassesView from "../../components/Cards/AdminCard/CardAdminClassesView";
-import CardAdminClassesAdd from "../../components/Cards/AdminCard/CardAdminClassesAdd";
-import CardAdminClassesEdit from "../../components/Cards/AdminCard/CardAdminClassesEdit";
+import CardAdminClassesAdd from "../../components/Cards/AdminCard/Classes/CardAdminClassesAdd";
+import CardAdminClassesEdit from "../../components/Cards/AdminCard/Classes/CardAdminClassesEdit";
 
 export default function FeeClassesAction() {
   const location = useLocation();

@@ -4,14 +4,13 @@ import React from "react";
 import CardViewGrade from "../../components/Cards/TeacherCard/CardViewGrade";
 
 export default function ClassesGradeView() {
-
   return (
-    <>      {/* Header */}
+    <>
       <div className="flex flex-wrap mt-4">
         <div className="w-full mb-12 px-4">
-        <CardViewGrade/>
+          <CardViewGrade />
         </div>
       </div>
     </>
   );
-};
+}

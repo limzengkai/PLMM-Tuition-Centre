@@ -12,7 +12,16 @@ const { deleteUserFromAuth } = require("./myfunctions/deleteUserFromAuth");
 
 const { getUserFromAuth } = require("./myfunctions/getUserData");
 
+const { feePaymentReminder } = require("./myfunctions/feePaymentReminder");
+
+const { checkUserState} = require("./myfunctions/checkUserState");
+
+const { updateUserStatus } = require("./myfunctions/updateUserStatus");
+
 // Export the Cloud Functions
 exports.processRegistration = processRegistration;
 exports.deleteUserFromAuth = deleteUserFromAuth;
 exports.getUserFromAuth = getUserFromAuth;
+exports.feePaymentReminder = feePaymentReminder;
+exports.checkUserState = checkUserState;
+exports.updateUserStatus = updateUserStatus;

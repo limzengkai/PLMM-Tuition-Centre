@@ -32,7 +32,7 @@ export default function Auth() {
             <Route path="register" exact element={<Register/>} />
             <Route path="forgot-password" exact element={<ForgotPassword/>} />
             <Route path="reset-password" exact element={<ResetPassword/>} />
-
+            <Route path="change-password" exact element={<ChangePassword/>} />
             {/* <Route path="*" element={<Navigate from="/auth" to="/auth/login" />} /> */}
           </Routes>
           <FooterSmall absolute />

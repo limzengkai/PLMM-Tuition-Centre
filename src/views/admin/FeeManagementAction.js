@@ -1,8 +1,7 @@
 import React from "react";
-import { useLocation } from "react-router-dom";
 
 // components
-import CardFeeManagementView from "../../components/Cards/AdminCard/CardFeeManagementView";
+import CardFeeManagementView from "../../components/Cards/AdminCard/Fee/FeeManagement/CardFeeManagementView";
 
 export default function FeeManagementAction() {
 

@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { Routes, Route, useLocation  } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 
 // components
 import AdminNavbar from "../components/Navbars/AdminNavbar.js";
 import AdminSidebar from "../components/Sidebar/AdminSidebar.js";
-import HeaderStats from "../components/Headers/HeaderStats.js";
+import HeaderStats from "../components/Headers/Admin/HeaderStats.js";
 import FooterAdmin from "../components/Footers/FooterAdmin.js";
 // import HeaderDashboard from "../components/Headers/HeaderDashboard.js";
-import HeaderFee from "../components/Headers/HeaderFee.js";
-import HeaderAttendance from "../components/Headers/HeaderAttendance.js";
-import HeaderClasses from "../components/Headers/HeaderClasses.js";
+// import HeaderFee from "../components/Headers/HeaderFee.js";
+// import HeaderAttendance from "../components/Headers/HeaderAttendance.js";
+// import HeaderClasses from "../components/Headers/HeaderClasses.js";
 
-import HeaderEmpty from "../components/Headers/HeaderEmpty"
+import HeaderEmpty from "../components/Headers/HeaderEmpty";
 // views
 import Dashboard from "../views/admin/Dashboard.js";
 import Profile from "../views/admin/Profile.js";
+import ChangePassword from "../views/admin/ChangePassword.js";
 import Users from "../views/admin/Users.js";
 import UsersManagementAction from "../views/admin/UsersManagementAction.js";
 import UsersRegistrationView from "../views/admin/UsersRegistrationView.js";
@@ -27,8 +28,10 @@ import ClassesAction from "../views/admin/ClassesAction.js";
 import FeeManagementAction from "../views/admin/FeeManagementAction.js";
 import FeeManagementViewAction from "../views/admin/FeeManagementViewAction.js";
 import FeeClassesAction from "../views/admin/FeeClassesAction.js";
-import CardAdminAttendanceEdit from "../components/Cards/AdminCard/CardAdminAttendanceEdit";
-import CardAdminAttendanceViewDetails from "../components/Cards/AdminCard/CardAdminAttendanceViewDetails";
+import CardAdminAttendanceEdit from "../components/Cards/AdminCard/Attendance/CardAdminAttendanceEdit";
+import CardAdminAttendanceViewDetails from "../components/Cards/AdminCard/Attendance/CardAdminAttendanceViewDetails";
+import InfoTeacher from "../components/Cards/AdminCard/Info/InfoTeacher.js";
+import Voucher from "../views/admin/Voucher.js";
 
 export default function Admin() {
   const location = useLocation();
@@ -47,23 +50,27 @@ export default function Admin() {
         setHeaderComponent(<HeaderEmpty />);
         break;
       case location.pathname.startsWith("/admin/fee"):
-        setHeaderComponent(<HeaderFee />);
+        setHeaderComponent(<HeaderEmpty />);
         setPageTitle("Fees");
         break;
       case location.pathname.startsWith("/admin/attendance"):
-        setHeaderComponent(<HeaderAttendance />);
+        setHeaderComponent(<HeaderEmpty />);
         setPageTitle("Attendance");
         break;
+      case location.pathname.startsWith("/admin/change-password"):
+        setHeaderComponent(<HeaderEmpty />);
+        setPageTitle("Changing Password");
+        break;
       case location.pathname.startsWith("/admin/users"):
-        setHeaderComponent(<HeaderAttendance />);
+        setHeaderComponent(<HeaderEmpty />);
         setPageTitle("Users");
         break;
       case location.pathname.startsWith("/admin/info"):
-        setHeaderComponent(<HeaderAttendance />);
+        setHeaderComponent(<HeaderEmpty />);
         setPageTitle("Info");
         break;
       case location.pathname.startsWith("/admin/classes"):
-        setHeaderComponent(<HeaderClasses />);
+        setHeaderComponent(<HeaderEmpty />);
         setPageTitle("Classes");
         break;
       default:
@@ -84,33 +91,64 @@ export default function Admin() {
           <Routes>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="change-password" element={<ChangePassword />} />
             <Route path="users" element={<Users />} />
             <Route path="users/registration/" element={<Users />} />
-            <Route path="users/registration/:id" element={<UsersRegistrationView />} />
-            <Route path="users/registration/rejected" element={<Users />}/>
+            <Route
+              path="users/registration/:id"
+              element={<UsersRegistrationView />}
+            />
+            <Route path="users/registration/rejected" element={<Users />} />
+            <Route path="users/registration/approved" element={<Users />} />
             <Route path="users/view/:id" element={<UsersManagementAction />} />
             <Route path="users/edit/:id" element={<UsersManagementAction />} />
             <Route path="users/add" element={<UsersManagementAction />} />
             <Route path="info" element={<Info />} />
+            <Route path="info/teachers" element={<InfoTeacher />} />
 
             {/* Fee Management Page */}
             <Route path="fee" element={<Fee />} />
-            <Route path="fee/add" element={<Fee />} />
+            <Route path="fee/add/:uid" element={<Fee />} />
             <Route path="fee/view/:id" element={<FeeManagementAction />} />
-            <Route path="fee/view/:id/:feeid" element={<FeeManagementViewAction />} />
-            <Route path="fee/edit/:id/:feeid" element={<FeeManagementViewAction />} />
+            <Route
+              path="fee/view/:id/:feeid"
+              element={<FeeManagementViewAction />}
+            />
+            <Route
+              path="fee/edit/:id/:feeid"
+              element={<FeeManagementViewAction />}
+            />
+            <Route
+              path="fee/payment-history"
+              element={<FeeManagementViewAction />}
+            />
             <Route path="fee/classes" element={<FeeClassesAction />} />
-            <Route path="fee/classes/view/:uid" element={<FeeClassesAction />} />
-            <Route path="fee/classes/add" element={<FeeClassesAction />} />
+            <Route
+              path="fee/classes/view/:uid"
+              element={<FeeClassesAction />}
+            />
+            <Route path="fee/classes/add/:uid" element={<FeeClassesAction />} />
             <Route path="fee/classes/:id" element={<FeeClassesAction />} />
-            <Route path="fee/payment-history" element={<FeeClassesAction />} />
+            <Route path="fee/voucher" element={<Voucher />} />
+            <Route path="fee/voucher/view/:id" element={<Voucher />} />
+            <Route path="fee/voucher/add" element={<Voucher />} />
+            <Route path="fee/voucher/edit/:id" element={<Voucher />} />
 
             {/* Attendance Management Page */}
             <Route path="attendance" element={<Attendance />} />
             <Route path="attendance/class/:id" element={<AttendanceAction />} />
-            <Route path="attendance/class/:id/view/:attdid" element={<CardAdminAttendanceViewDetails/>} />
-            <Route path="attendance/class/:id/edit/:attdid" element={<CardAdminAttendanceEdit/>} />
-            <Route path="attendance/record/:id" element={<AttendanceAction />} />
+            <Route
+              path="attendance/class/:id/view/:attdid"
+              element={<CardAdminAttendanceViewDetails />}
+            />
+            <Route
+              path="attendance/class/:id/edit/:attdid"
+              element={<CardAdminAttendanceEdit />}
+            />
+            <Route
+              path="attendance/record/:id"
+              element={<AttendanceAction />}
+            />
             <Route path="attendance" element={<Attendance />} />
 
             {/* Classes Management Page */}

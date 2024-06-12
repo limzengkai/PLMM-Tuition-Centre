@@ -35,20 +35,21 @@ function CardEditResult({ color }) {
         const studentQuery = query(collection(db, "students"), where("registeredCourses", "array-contains", id));
         const studentSnapshot = await getDocs(studentQuery);
         const students = studentSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
+  
         const TestDetail = doc(db, "test", testid);
         const TestDetailSnapshot = await getDoc(TestDetail);
         const testDetailData = TestDetailSnapshot.data();
         setTestName(testDetailData.testName);
         setDate(testDetailData.TestDate);
         setMaxscore(testDetailData.maxScore);
-
+  
         const defaultStudentMarks = await Promise.all(
           students.map(async (student) => {
             const testrecordRef = doc(db, "test", testid, "scores", student.id);
             const testrecordSnapshot = await getDoc(testrecordRef);
-            const score = testrecordSnapshot.exists() ? testrecordSnapshot.data().score : 0;
-            const comment = testrecordSnapshot.exists() ? testrecordSnapshot.data().comment : "";
+            if (!testrecordSnapshot.exists()) return null;
+            const score = testrecordSnapshot.data().score;
+            const comment = testrecordSnapshot.data().comment;
             return {
               studentID: student.id,
               score: score,
@@ -57,8 +58,15 @@ function CardEditResult({ color }) {
           })
         );
 
-        setStudentMarks(defaultStudentMarks);
-        setStudentData(students);
+        console.log("Default Student Marks: ", defaultStudentMarks);
+        const validStudentMarks = defaultStudentMarks.filter((mark) => mark !== null);
+        const validStudents = students.filter((student) =>
+          validStudentMarks.some((mark) => mark.studentID === student.id)
+        );
+        console.log("Valid Student Marks: ", validStudentMarks);
+
+        setStudentMarks(validStudentMarks);
+        setStudentData(validStudents);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching students:", error);
@@ -67,6 +75,7 @@ function CardEditResult({ color }) {
 
     fetchStudents();
   }, [id, testid]);
+  
 
   const confirmSubmit = (e) => {
     e.preventDefault(); // Prevent the default form submission
@@ -159,8 +168,21 @@ function CardEditResult({ color }) {
   }, []);
 
   const handleInputChange = (e, index, field) => {
+    const value = e.target.value;
+    if (field === "score" && (value < 0 || value > maxScore)) {
+      toast.error(`Score must be between 0 and ${maxScore}`, {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+      });
+      return;
+    }
     const updatedStudentMarks = [...studentMarks];
-    updatedStudentMarks[index][field] = e.target.value;
+    updatedStudentMarks[index][field] = value;
     setStudentMarks(updatedStudentMarks);
   };
 
@@ -242,9 +264,11 @@ function CardEditResult({ color }) {
                     <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">{student.firstName} {student.lastName}</td>
                     <td className="w-1/6 border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
                       <input
-                        type="text"
+                        type="number"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500 mr-4"
                         value={studentMarks[index].score}
+                        min={0}
+                        max={maxScore}
                         onChange={(e) => handleInputChange(e, index, "score")}
                       />
                     </td>

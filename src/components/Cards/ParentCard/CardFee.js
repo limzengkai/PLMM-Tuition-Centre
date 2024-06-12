@@ -2,29 +2,19 @@ import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../../config/context/AuthContext";
 import { db } from "../../../config/firebase";
 import PropTypes from "prop-types";
-import CardPagination from "../CardPagination";
 import CardLoading from "../CardLoading";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  addDoc,
-} from "firebase/firestore";
-import { Link } from "react-router-dom";
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { Link, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+import MUIDataTable from "mui-datatables";
+import { createTheme } from "@mui/material/styles";
+import { ThemeProvider } from "@emotion/react";
 
 function CardFee({ color }) {
   const { currentUser } = useContext(AuthContext);
-  const [currentPage, setCurrentPage] = useState(1);
   const [feePayments, setFeePayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sortConfig, setSortConfig] = useState({
-    key: null,
-    direction: "ascending",
-  });
-  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false); // State to toggle showing only unpaid payments
-  const projectsPerPage = 2;
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,6 +39,7 @@ function CardFee({ color }) {
             const feePaymentQuery = query(
               collection(db, "fees"),
               where("StudentID", "==", student.id),
+              where("publish", "==", true),
               orderBy("paymentStatus", "asc"),
               orderBy("DueDate", "desc")
             );
@@ -61,7 +52,7 @@ function CardFee({ color }) {
                 ...doc.data(),
               });
             });
-
+            console.log(feeData);
             await Promise.all(
               feePaymentSnapshot.docs.map(async (doc) => {
                 const feePaymentlist = await getDocs(
@@ -86,6 +77,15 @@ function CardFee({ color }) {
           })
         );
 
+        // Sort the fee array
+        fee.sort((a, b) => {
+          // sort by paymentStatus
+          if (a.paymentStatus === false && b.paymentStatus === true) return -1;
+          if (a.paymentStatus === true && b.paymentStatus === false) return 1;
+
+          // if paymentStatus is the same, sort by DueDate in descending order
+          return b.DueDate.seconds - a.DueDate.seconds;
+        });
         setFeePayments(fee);
         setLoading(false);
       } catch (error) {
@@ -95,48 +95,6 @@ function CardFee({ color }) {
 
     fetchData();
   }, [currentUser.uid]);
-
-
-  const handleSort = (key) => {
-    if (sortConfig.key === key) {
-      setSortConfig({
-        ...sortConfig,
-        direction:
-          sortConfig.direction === "ascending" ? "descending" : "ascending",
-      });
-    } else {
-      setSortConfig({ key, direction: "ascending" });
-    }
-  };
-
-  const sortData = (data) => {
-    const sortedData = [...data];
-    if (sortConfig.key) {
-      sortedData.sort((a, b) => {
-        if (sortConfig.key === "fee") {
-          const feeA = calculateTotalFee(a);
-          const feeB = calculateTotalFee(b);
-          return sortConfig.direction === "ascending"
-            ? feeA - feeB
-            : feeB - feeA;
-        } else {
-          if (a[sortConfig.key] < b[sortConfig.key]) {
-            return sortConfig.direction === "ascending" ? -1 : 1;
-          }
-          if (a[sortConfig.key] > b[sortConfig.key]) {
-            return sortConfig.direction === "ascending" ? 1 : -1;
-          }
-          return 0;
-        }
-      });
-    }
-
-    // Filter paid payments if showUnpaidOnly is true
-    if (showUnpaidOnly) {
-      return sortedData.filter((project) => !project.paymentStatus);
-    }
-    return sortedData;
-  };
 
   const calculateTotalFee = (project) => {
     return project.classes?.reduce((totalFee, classItem) => {
@@ -156,60 +114,99 @@ function CardFee({ color }) {
     }
     return "";
   };
+  const confirmPayment = async (id) => {
+    const result = await Swal.fire({
+      title: "Are you sure you want to proceed with the payment?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes",
+      cancelButtonText: "Cancel",
+    });
 
-  const toggleShowUnpaidOnly = () => {
-    setShowUnpaidOnly(!showUnpaidOnly);
+    if (result.isConfirmed) {
+      navigate(`/parent/fee/payment/${id}`);
+    }
   };
 
-  const renderSortIcon = (column) => {
-    if (sortConfig.key === column) {
-      return sortConfig.direction === "ascending" ? (
-        <span>&uarr;</span>
+  const columns = [
+    { name: "Due Date" },
+    { name: "Student Name" },
+    {
+      name: "Fee",
+    },
+    { name: "Description" },
+    { name: "Paid Date" },
+    { name: "Actions", options: { filter: false, sort: false } },
+  ];
+
+  const data = feePayments.map((project) => [
+    getDate(project.DueDate),
+    project.studentName,
+    "RM " + calculateTotalFee(project),
+    project.classes?.map((classItem) => classItem.Descriptions).join(", "),
+    project.paymentStatus ? getDate(project.paymentDate) : "Not Paid",
+    <div className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+      <Link
+        to={`/parent/fee/view/${project.id}`}
+        className="mr-3 text-black rounded-full font-bold py-2 px-4 bg-blue-500"
+      >
+        View
+      </Link>
+      {!project.paymentStatus ? (
+        <button
+          onClick={() => confirmPayment(project.id)} // Pass the ID here
+          className="text-white rounded-full font-bold py-2 px-4 hover:bg-blue-600"
+          style={{
+            backgroundColor: project.paymentStatus ? "#808080" : "#04086D",
+          }}
+        >
+          Make a payment
+        </button>
       ) : (
-        <span>&darr;</span>
-      );
-    }
-    return null;
+        <button
+          className="bg-gray-400 rounded-full font-bold py-2 px-4"
+          disabled
+        >
+          Paid
+        </button>
+      )}
+    </div>,
+  ]);
+
+  const getMuiTheme = () =>
+    createTheme({
+      typography: {
+        fontFamily: "Poppins",
+      },
+      components: {
+        MUIDataTableHeadCell: {
+          fixedHeaderCommon: {
+            backgroundColor: "transparent",
+          },
+          styleOverrides: {
+            root: {
+              fontSize: "12px", // Adjusted font size
+              textAlign: "center",
+            },
+          },
+        },
+        MUIDataTableBodyCell: {
+          styleOverrides: {
+            root: {
+              fontSize: "12px", // Adjusted font size
+            },
+          },
+        },
+      },
+    });
+
+  const options = {
+    responsive: "standard",
+    selectableRows: "none",
+    downloadOptions: { excludeColumns: [0, 3] },
+    rowsPerPage: 5,
+    rowsPerPageOptions: [5, 10, 20],
   };
-
-  // Calculate indexes for pagination
-  const indexOfLastProject = currentPage * projectsPerPage;
-  const indexOfFirstProject = indexOfLastProject - projectsPerPage;
-  const currentProjects = feePayments.slice(
-    indexOfFirstProject,
-    indexOfLastProject
-  );
-
-  // Change page
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  // Calculate total number of pages
-  const totalPages = Math.ceil(feePayments.length / projectsPerPage);
-
-  // Generate array of page numbers
-  const pageNumbers = [];
-  if (totalPages <= 10) {
-    for (let i = 1; i <= totalPages; i++) {
-      pageNumbers.push(i);
-    }
-  } else {
-    const leftBound = Math.max(1, currentPage - 4);
-    const rightBound = Math.min(currentPage + 5, totalPages);
-
-    if (currentPage < 6) {
-      for (let i = 1; i <= 10; i++) {
-        pageNumbers.push(i);
-      }
-    } else if (currentPage >= totalPages - 5) {
-      for (let i = totalPages - 9; i <= totalPages; i++) {
-        pageNumbers.push(i);
-      }
-    } else {
-      for (let i = leftBound; i <= rightBound; i++) {
-        pageNumbers.push(i);
-      }
-    }
-  }
 
   return (
     <>
@@ -237,131 +234,13 @@ function CardFee({ color }) {
                   View and manage your fee payments here
                 </p>
               </div>
-              <div>
-                <button
-                  className="bg-transparent hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 border border-gray-400 rounded shadow"
-                  onClick={toggleShowUnpaidOnly}
-                >
-                  {showUnpaidOnly ? "Show All" : "Show Unpaid Only"}
-                </button>
-              </div>
             </div>
           </div>
           <div className="block w-full overflow-x-auto">
-            <table className="items-center w-full bg-transparent border-collapse">
-              <thead>
-                <tr>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    No
-                  </th>
-                  <th
-                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
-                    onClick={() => handleSort("DueDate")}
-                  >
-                    Due Date {renderSortIcon("DueDate")}
-                  </th>
-                  <th
-                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
-                    onClick={() => handleSort("studentName")}
-                  >
-                    Student Name {renderSortIcon("studentName")}
-                  </th>
-                  <th
-                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
-                    onClick={() => handleSort("fee")}
-                  >
-                    Fee {renderSortIcon("fee")}
-                  </th>
-                  <th
-                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
-                    onClick={() => handleSort("description")}
-                  >
-                    Description
-                  </th>
-                  <th
-                    className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left cursor-pointer"
-                    onClick={() => handleSort("paymentDate")}
-                  >
-                    Paid Date {renderSortIcon("paymentDate")}
-                  </th>
-                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortData(feePayments).map((project, index) => (
-                  <tr key={index}>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {index + 1}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {getDate(project.DueDate)}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {project.studentName}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {"RM " +
-                        project.classes?.reduce((totalFee, classItem) => {
-                          return (
-                            totalFee +
-                            classItem.FeeAmounts.reduce(
-                              (acc, curr) => acc + curr,
-                              0
-                            )
-                          );
-                        }, 0)}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {project.classes
-                        ?.map((classItem) => classItem.Descriptions)
-                        .join(", ")}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      {project.paymentStatus
-                        ? getDate(project.paymentDate)
-                        : "Not Paid"}
-                    </td>
-                    <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                      <Link
-                        to={`/parent/fee/view/${project.id}`}
-                        className="mr-3 text-black rounded-full font-bold py-2 px-4 bg-blue-500"
-                      >
-                        View
-                      </Link>
-                      {!project.paymentStatus ? (
-                        <Link
-                          to={`/parent/fee/payment/${project.id}/`}
-                          className="text-white rounded-full font-bold py-2 px-4 hover:bg-blue-600"
-                          style={{
-                            backgroundColor: project.paymentStatus
-                              ? "#808080"
-                              : "#04086D",
-                          }}
-                        >
-                          Make a payment
-                        </Link>
-                      ) : (
-                        <button
-                          className="bg-gray-400 rounded-full font-bold py-2 px-4"
-                          disabled
-                        >
-                          paid
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ThemeProvider theme={getMuiTheme()}>
+              <MUIDataTable data={data} columns={columns} options={options} />
+            </ThemeProvider>
           </div>
-          {/* Pagination */}
-          <CardPagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            paginate={paginate}
-          />
         </div>
       )}
     </>

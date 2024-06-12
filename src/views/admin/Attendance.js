@@ -2,7 +2,7 @@ import React from "react";
 
 // components
 
-import CardAdminAttendance from "../../components/Cards/AdminCard/CardAdminAttendance";
+import CardAdminAttendance from "../../components/Cards/AdminCard/Attendance/CardAdminAttendance";
 
 export default function Settings() {
   return (

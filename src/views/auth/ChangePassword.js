@@ -1,7 +1,6 @@
 import React, { useContext, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import Swal from 'sweetalert2';
 import { EmailAuthProvider, getAuth, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 import { AuthContext } from "../../config/context/AuthContext";
 
@@ -53,12 +52,20 @@ const ChangePassword = () => {
       await updatePassword(user, newPassword);
 
       // Show success message
-      toast.success("Password changed successfully!");
+      Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: 'Password changed successfully!',
+      });
 
       navigate("/"+role+"/dashboard");
     } catch (error) {
       setError("Error changing password");
-      toast.error("There was an error changing your password. Please try again.");
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'There was an error changing your password. Please try again.',
+      });
     }
 
     setLoading(false);
@@ -68,15 +75,15 @@ const ChangePassword = () => {
     <>
       <div className="container mx-auto px-4 h-full">
         <div className="flex content-center items-center justify-center h-full">
-          <div className="w-full lg:w-4/12 px-4">
+          <div className="w-full lg:w-8/12 px-4">
             <div className="relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded-lg bg-blueGray-200 border-0">
               <div className="rounded-t mb-0 px-6 py-6"></div>
               <div className="bg-red-600 mx-6 my-2 p-4 rounded">
                 {/* Password rule */}
-                <h1 className="text-white font-bold">
+                <h1 className="text-white font-bold text-sm md:text-base">
                   Your new password must meet the following requirements:
                 </h1>
-                <ul className="text-white md:text-normal sm:text-sm text-sm">
+                <ul className="text-white text-xs md:text-base sm:text-sm">
                   <li>At least 1 lowercase letter (a - z)</li>
                   <li>At least 1 uppercase letter (A - Z)</li>
                   <li>At least 1 number (0 - 9)</li>
@@ -86,7 +93,7 @@ const ChangePassword = () => {
               </div>
               <div className="flex-auto px-4 lg:px-10 py-10 pt-0">
                 <form onSubmit={handleSubmit}>
-                  <h1 className="text-3xl font-bold text-center mb-6">
+                  <h1 className="text-lg md:text-xl lg:text-3xl font-bold text-center mb-6">
                     Change Your Password
                   </h1>
                   <div className="relative w-full mb-3">
@@ -156,7 +163,6 @@ const ChangePassword = () => {
           </div>
         </div>
       </div>
-      <ToastContainer />
     </>
   );
 };

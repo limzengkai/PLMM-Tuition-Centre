@@ -221,19 +221,21 @@ const InvoiceModal = ({ isOpen, onClose, students, users, fees }) => {
 
             <View style={styles.flexContainer}>
               <View style={[styles.section, styles.TableFirstContainer]}></View>
-              <Text style={[styles.section, styles.TableThirdContainer]}>Paid Amount: </Text>
-              <Text style={[styles.section, styles.TableFourthContainer]}>RM {(fees.feeDetail.paidAmount).toFixed(2)}</Text>
-            </View>
-
-            <View style={styles.flexContainer}>
-              <View style={[styles.section, styles.TableFirstContainer]}></View>
-              <Text style={[styles.section, styles.TableThirdContainer]}>Balance Left: </Text>
+              <Text style={[styles.section, styles.TableThirdContainer]}>Discount: </Text>
               <Text style={[styles.section, styles.TableFourthContainer]}>RM {
                 (fees && fees.classes.reduce((acc, curr) => {
                   return acc + curr.FeeAmounts.reduce((total, fee) => total + parseFloat(fee), 0);
                 }, 0) - fees.feeDetail.paidAmount).toFixed(2)
               }</Text>
             </View>
+
+            <View style={styles.flexContainer}>
+              <View style={[styles.section, styles.TableFirstContainer]}></View>
+              <Text style={[styles.section, styles.TableThirdContainer]}>Paid Amount: </Text>
+              <Text style={[styles.section, styles.TableFourthContainer]}>RM {(fees.feeDetail.paidAmount).toFixed(2)}</Text>
+            </View>
+
+
 
             {/* Invoice footer */}
             <Text style={styles.footer}>Thank you for your Payment</Text>
@@ -242,7 +244,7 @@ const InvoiceModal = ({ isOpen, onClose, students, users, fees }) => {
       </PDFViewer>
 
       {/* Download button */}
-      <div className="flex justify-center"> 
+      <div className="flex justify-center my-4"> 
         <button 
           onClick={handleDownload}
           className="mt-3 ml-3 rounded-lg font-bold py-2 px-4 bg-blue-500 text-white hover:bg-blue-600"
@@ -372,19 +374,21 @@ const InvoiceModal = ({ isOpen, onClose, students, users, fees }) => {
 
           <View style={styles.flexContainer}>
             <View style={[styles.section, styles.TableFirstContainer]}></View>
-            <Text style={[styles.section, styles.TableThirdContainer]}>Paid Amount: </Text>
-            <Text style={[styles.section, styles.TableFourthContainer]}>RM {fees.feeDetail.paidAmount}</Text>
-          </View>
-
-          <View style={styles.flexContainer}>
-            <View style={[styles.section, styles.TableFirstContainer]}></View>
-            <Text style={[styles.section, styles.TableThirdContainer]}>Balance Left: </Text>
+            <Text style={[styles.section, styles.TableThirdContainer]}>Discount: </Text>
             <Text style={[styles.section, styles.TableFourthContainer]}>RM {
               (fees && fees.classes.reduce((acc, curr) => {
                 return acc + curr.FeeAmounts.reduce((total, fee) => total + parseFloat(fee), 0);
               }, 0) - fees.feeDetail.paidAmount).toFixed(2)
             }</Text>
           </View>
+
+          <View style={styles.flexContainer}>
+            <View style={[styles.section, styles.TableFirstContainer]}></View>
+            <Text style={[styles.section, styles.TableThirdContainer]}>Paid Amount: </Text>
+            <Text style={[styles.section, styles.TableFourthContainer]}>RM {fees.feeDetail.paidAmount}</Text>
+          </View>
+
+
 
           {/* Invoice footer */}
           <Text style={styles.footer}>Thank you for your Payment</Text>

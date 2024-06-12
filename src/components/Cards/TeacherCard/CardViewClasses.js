@@ -1,10 +1,20 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
 import { db } from "../../../config/firebase";
 import { Link, useParams } from "react-router-dom";
 import CardPagination from "../CardPagination";
-import { getDocs,getDoc,doc, collection, query, where } from "firebase/firestore";
+import {
+  getDocs,
+  getDoc,
+  doc,
+  collection,
+  query,
+  where,
+} from "firebase/firestore";
 import CardLoading from "../CardLoading";
+import ClassesList from "./Classes/ClassesList";
 
 function CardViewClasses({ color }) {
   const { id } = useParams();
@@ -47,27 +57,33 @@ function CardViewClasses({ color }) {
               schedule: scheduleData,
             };
             setClassDetails(mergedData);
-            console.log("Class Details", mergedData);
+            console.log("Class Details ", mergedData);
 
             try {
-              const StudentQuery = query(collection(db, "students"), where("registeredCourses", "array-contains", id));
+              const StudentQuery = query(
+                collection(db, "students"),
+                where("registeredCourses", "array-contains", id)
+              );
               const StudentSnapshot = await getDocs(StudentQuery);
-          
+
               const students = [];
-              await Promise.all(StudentSnapshot.docs.map(async (studentDoc) => {
-                const studentData = studentDoc.data();
-                const studentId = studentDoc.id;
-          
-                // Fetch additional parent data
-                const parentDocRef = doc(db, "users", studentData.parentId); // Corrected line
-                const parentDocSnapshot = await getDoc(parentDocRef);
-                const parentData = parentDocSnapshot.data();
-          
-                students.push({ id: studentId, ...studentData, parentData });
-              }));
-          
+              await Promise.all(
+                StudentSnapshot.docs.map(async (studentDoc) => {
+                  const studentData = studentDoc.data();
+                  const studentId = studentDoc.id;
+
+                  // Fetch additional parent data
+                  const parentDocRef = doc(db, "users", studentData.parentId); // Corrected line
+                  const parentDocSnapshot = await getDoc(parentDocRef);
+                  const parentData = parentDocSnapshot.data();
+
+                  students.push({ id: studentId, ...studentData, parentData });
+                })
+              );
+
               setStudentData(students);
-              console.log("Student Data", students);
+              console.log("Student Data: ", studentData);
+              console.log("Class: ", classDetails);
             } catch (error) {
               console.error("Error fetching student documents:", error);
             }
@@ -77,6 +93,7 @@ function CardViewClasses({ color }) {
           }
         }
         setLoading(false);
+        console.log();
       } catch (error) {
         console.error("Error fetching documents:", error);
         setLoading(false);
@@ -85,6 +102,19 @@ function CardViewClasses({ color }) {
 
     fetchClassData();
   }, [id]);
+
+  function formatTime(time) {
+    if (!time || !time.seconds) {
+      return ""; // Handle case where time is undefined or time.seconds is not available
+    }
+    const date = new Date(time.seconds * 1000); // Convert seconds to milliseconds
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? "pm" : "am";
+    const formattedHours = hours % 12 || 12; // Convert 0 to 12 for 12-hour format
+    const formattedMinutes = minutes.toString().padStart(2, "0"); // Add leading zero if needed
+    return `${formattedHours}:${formattedMinutes}${ampm}`;
+  }
 
   // Filter students based on search term
   const filteredStudents = studentData.filter(
@@ -113,163 +143,213 @@ function CardViewClasses({ color }) {
     setCurrentPage(1); // Reset pagination to first page when searching
   };
 
-  function formatTime(time) {
-    if (!time || !time.seconds) {
-      return ""; // Handle case where time is undefined or time.seconds is not available
-    }
-    const date = new Date(time.seconds * 1000); // Convert seconds to milliseconds
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? "pm" : "am";
-    const formattedHours = hours % 12 || 12; // Convert 0 to 12 for 12-hour format
-    const formattedMinutes = minutes.toString().padStart(2, "0"); // Add leading zero if needed
-    return `${formattedHours}:${formattedMinutes}${ampm}`;
-  }
+  // Generate PDF with student list
+  const generatePDF = () => {
+    // Create a new jsPDF instance
+    const doc = new jsPDF();
+
+    // Define data for the table
+    const data = currentStudents.map((student, index) => [
+      index + 1,
+      student.firstName + " " + student.lastName,
+      student.educationLevel,
+      student.parentData.firstName + " " + student.parentData.lastName,
+      student.parentData.contactNumber,
+      student.registeredDate,
+    ]);
+
+    // Define table headers
+    const headers = [
+      "No",
+      "Student Name",
+      "Education Level",
+      "Parent Name",
+      "Parent Contact Number",
+      "Registered Date",
+    ];
+
+    // Add title with course name and educational level
+    const title = `Student List for ${classDetails?.CourseName} - ${classDetails?.academicLevel}`;
+    doc.setFontSize(16);
+    doc.text(title, 14, 20);
+
+    // Add table to the PDF using autotable
+    doc.autoTable({
+      head: [headers],
+      body: data,
+      startY: 30, // Position the table below the title
+    });
+
+    // Save or display the PDF
+    doc.save("student_list.pdf");
+  };
 
   return (
     <>
-    {loading ? (
-      <CardLoading loading={loading} />
-    ) : (
-    <div
-      className={
-        "relative mx-auto px-4 py-8 flex flex-col min-w-0 break-words w-full shadow-lg rounded " +
-        (color === "light" ? "bg-white" : "bg-lightBlue-900 text-white")
-      }
-    >
-      <div className="flex items-center mb-4 font-bold text-xl">
-        <Link to="/teacher/classes" className="text-blue-500 hover:underline">Classes</Link>
-        <span className="mx-2">&nbsp;/&nbsp;</span>
-        <span className="text-gray-500">View Class's Details</span>
-      </div>
-      {/* Search input */}
-      <div className="mt-2 mb-4">
-        <input
-          type="text"
-          placeholder="Search by Student Name or ID"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500"
-        />
-      </div>
-      {/* Class details */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div className="border rounded-lg p-2">
-          <h2 className="text-md font-bold mb-2">
-            Class Name:{" "}
-            <span className="text-sm font-semibold">{classDetails?.CourseName}</span>
-          </h2>
-        </div>
-        <div className="border rounded-lg p-2">
-          <h2 className="text-md font-semibold mb-2">
-            Academic Level:{" "}
-            <span className="text-sm">{classDetails?.academicLevel}</span>
-          </h2>
-        </div>
-        <div className="border rounded-lg p-2">
-          <h2 className="text-md font-semibold">
-            Class Fee: <span className="text-sm">{classDetails?.fee}</span>
-          </h2>
-        </div>
-        <div className="border rounded-lg p-2">
-          <h2 className="text-md font-semibold">
-            Total Registered Students:{" "}
-            <span className="text-sm">{classDetails?.studentID.length}</span>
-          </h2>
-        </div>
-        <div className="border rounded-lg p-2">
-          <h2 className="text-md font-semibold">
-            Teacher Name:{" "}
-            <span className="text-sm">{classDetails?.location}</span>
-          </h2>
-        </div>
-        <div className="border rounded-lg p-2">
-          <h2 className="text-md font-semibold">
-            Location: <span className="text-sm">{classDetails?.location}</span>
-          </h2>
-        </div>
-        <div className="border rounded-lg p-2">
-          <h2 className="text-md font-semibold mb-2">Schedule</h2>
-          <ul className="list-disc list-inside">
-            {classDetails && classDetails.schedule.map((day, i) => (
-              <li key={i} className="text-sm">{day.day} ({formatTime(day.startTime)} - {formatTime(day.endTime)})</li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      {loading ? (
+        <CardLoading loading={loading} />
+      ) : (
+        <div
+          className={
+            "relative mx-auto px-4 py-8 flex flex-col min-w-0 break-words w-full shadow-lg rounded " +
+            (color === "light" ? "bg-white" : "bg-lightBlue-900 text-white")
+          }
+        >
+          <div className="flex items-center mb-4 font-bold text-xl">
+            <Link
+              to="/teacher/classes"
+              className="text-blue-500 hover:underline"
+            >
+              Classes
+            </Link>
+            <span className="mx-2">&nbsp;/&nbsp;</span>
+            <span className="text-gray-500">View Class's Details</span>
+          </div>
+          {/* Search input */}
+          <div className="mt-2 mb-4">
+            <input
+              type="text"
+              placeholder="Search by Student Name or ID"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+          {/* Class details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="border rounded-lg p-2">
+              <h2 className="text-md font-bold mb-2">
+                Class Name:{" "}
+                <span className="text-sm font-semibold">
+                  {classDetails?.CourseName}
+                </span>
+              </h2>
+            </div>
+            <div className="border rounded-lg p-2">
+              <h2 className="text-md font-semibold mb-2">
+                Academic Level:{" "}
+                <span className="text-sm">{classDetails?.academicLevel}</span>
+              </h2>
+            </div>
+            <div className="border rounded-lg p-2">
+              <h2 className="text-md font-semibold">
+                Class Fee: <span className="text-sm">{classDetails?.fee}</span>
+              </h2>
+            </div>
+            <div className="border rounded-lg p-2">
+              <h2 className="text-md font-semibold">
+                Total Registered Students:{" "}
+                <span className="text-sm">
+                  {classDetails?.studentID.length}
+                </span>
+              </h2>
+            </div>
+            <div className="border rounded-lg p-2">
+              <h2 className="text-md font-semibold">
+                Teacher Name:{" "}
+                <span className="text-sm">{classDetails?.location}</span>
+              </h2>
+            </div>
+            <div className="border rounded-lg p-2">
+              <h2 className="text-md font-semibold mb-2">Schedule @ Location</h2>
+              <ul className="list-disc list-inside">
+                {classDetails &&
+                  classDetails.schedule.map((day, i) => (
+                    <li key={i} className="text-sm">
+                      {day.day} ({formatTime(day.startTime)} -{" "}
+                      {formatTime(day.endTime)})  @ {day.location}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </div>
 
-
-      {/* Student list */}
-      <div className="block w-full overflow-x-auto">
-        {/* Student table */}
-        <table className="w-full bg-transparent border-collapse mt-4">
-          {/* Table headers */}
-          <thead>
-            <tr>
-              <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                No
-              </th>
-              <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                Student Name
-              </th>
-              <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                educationa Level
-              </th>
-              <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                Parent Name
-              </th>
-              <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                Parent Contact Number
-              </th>
-              <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                Registered Date
-              </th>
-            </tr>
-          </thead>
-          {/* Table body */}
-          <tbody>
-          {currentStudents.length > 0 ? (
-            currentStudents.map((student, index) => (
-              <tr key={student.id}>
-                <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                  {index + 1}
-                </td>
-                <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                  {student.firstName + " " + student.lastName}
-                </td>
-                <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                  {student.educationLevel}
-                </td>
-                <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                  {student.parentData.firstName + " " + student.parentData.lastName}
-                </td>
-                <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                  {student.parentData.contactNumber}
-                </td>
-                <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                  {student.registeredDate}
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td className="text-center border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4" colSpan="6">
-                No students registered in this class.
-              </td>
-            </tr>
-          )}
-        </tbody>
-        </table>
-      </div>
-      {/* Pagination */}
-      <CardPagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        paginate={paginate}
-      />
-    </div>
-        )}
-        </>
+          {/* Student list */}
+          <div className="block w-full overflow-x-auto">
+            {/* Student table */}
+            <table className="w-full bg-transparent border-collapse mt-4">
+              {/* Table headers */}
+              <thead>
+                <tr>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    No
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    Student Name
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    educationa Level
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    Parent Name
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    Parent Contact Number
+                  </th>
+                  <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                    Registered Date
+                  </th>
+                </tr>
+              </thead>
+              {/* Table body */}
+              <tbody>
+                {currentStudents.length > 0 ? (
+                  currentStudents.map((student, index) => (
+                    <tr key={student.id}>
+                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                        {index + 1}
+                      </td>
+                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                        {student.firstName + " " + student.lastName}
+                      </td>
+                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                        {student.educationLevel}
+                      </td>
+                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                        {student.parentData.firstName +
+                          " " +
+                          student.parentData.lastName}
+                      </td>
+                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                        {student.parentData.contactNumber}
+                      </td>
+                      <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                        {student.registeredDate}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      className="text-center border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4"
+                      colSpan="6"
+                    >
+                      No students registered in this class.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            <div className="flex justify-center">
+              <div>
+                <button
+                  onClick={generatePDF}
+                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
+                >
+                  Get the Student List (PDF)
+                </button>
+              </div>
+            </div>
+          </div>
+          {/* Pagination */}
+          <CardPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            paginate={paginate}
+          />
+        </div>
+      )}
+    </>
   );
 }
 

@@ -9,9 +9,12 @@ export default function CardPageVisits() {
         <div className="rounded-t mb-0 px-4 py-3 border-0">
           <div className="flex flex-wrap items-center">
             <div className="relative w-full px-4 max-w-full flex-grow flex-1">
-              <h3 className="font-semibold text-base text-blueGray-700">
-                Page visits
-              </h3>
+              <h6 className="uppercase text-blueGray-500 mb-1 text-xs font-semibold">
+                Overview
+              </h6>
+              <h2 className="text-blueGray-500  text-xl font-semibold">
+                Monthly Sales Value
+              </h2>
             </div>
             <div className="relative w-full px-4 max-w-full flex-grow flex-1 text-right">
               <button

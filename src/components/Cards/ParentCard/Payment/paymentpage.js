@@ -1,4 +1,11 @@
-import { addDoc, collection, doc, getDocs, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2"; // Import SweetAlert
@@ -8,13 +15,17 @@ import { AuthContext } from "../../../../config/context/AuthContext";
 
 function PaymentPage() {
   const { id } = useParams();
-  const { currentUser } = useContext(AuthContext);
+  const currentUser = useContext(AuthContext);
+  const [total, setTotal] = useState(0);
   const [payment, setPayment] = useState([]);
   const [subtotal, setSubtotal] = useState(0);
   const [discount, setDiscount] = useState(null);
+  const [discountType, setDiscountType] = useState("");
+  const [discountData, setDiscountData] = useState([]);
+  const [discountCode, setDiscountCode] = useState("");
+  const [discountID, setDiscountID] = useState("");
+  const [discountStatusMssg, setDiscountStatusMssg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [discountvalue, setDiscountvalue] = useState(0);
-  // Define state variables for email, cardHolder, cardNo, expiry, and cvc
   const [email, setEmail] = useState("");
   const [cardHolder, setCardHolder] = useState("");
   const [cardNo, setCardNo] = useState("");
@@ -26,14 +37,10 @@ function PaymentPage() {
     const fetchFeePaymentData = async () => {
       try {
         setLoading(true);
-        // Reference to the 'Classes' collection under the 'fees' document with the given id
         const feePaymentRef = collection(db, "fees", id, "Classes");
-        // Get all documents from the collection
         const querySnapshot = await getDocs(feePaymentRef);
-        // Initialize an empty array to store the payment data
         const paymentData = [];
 
-        // Iterate over the documents and construct objects with id and data
         querySnapshot.forEach((doc) => {
           paymentData.push({
             id: doc.id,
@@ -47,126 +54,246 @@ function PaymentPage() {
       }
     };
 
-    fetchFeePaymentData(); // Call the async function to fetch data
-  }, [id]); // Make sure to include 'id' in the dependency array if it's a prop
+    fetchFeePaymentData();
+  }, [id]);
 
   useEffect(() => {
-    // Calculate subtotal
-    const subtotalAmount = payment.reduce(
-      (accumulator, fee) =>
-        accumulator + fee.FeeAmounts.reduce((a, b) => a + b, 0),
-      0
-    );
+    const subtotalAmount = payment.reduce((accumulator, fee) => {
+      const feeTotal = fee.FeeAmounts.reduce((sum, amount, index) => {
+        const quantity = fee.Quantity[index];
+        return sum + amount * quantity;
+      }, 0);
+      return accumulator + feeTotal;
+    }, 0);
+
     setSubtotal(subtotalAmount);
+    setTotal(subtotalAmount);
   }, [payment]);
 
-  const handleDiscountSubmit = () => {
-    console.log("I wish to have a discount!!!");
-  };
-  // Calculate total after applying discount
-  const total = subtotal - discountvalue;
+  useEffect(() => {
+    if (discount !== null) {
+      let newTotal = subtotal;
+      if (discountType === "percentage") {
+        newTotal = subtotal * (1 - discount / 100);
+      } else if (discountType === "numeric") {
+        newTotal = subtotal - discount;
+      }
+      setTotal(newTotal);
+    }
+  }, [discount, subtotal, discountType]);
 
-  const handleDiscountChange = (e) => {
-    setDiscount(e.target.value);
+  const DiscountData = async () => {
+    try {
+      const publicDiscountData = await getDocs(
+        query(collection(db, "vouchers"), where("visibility", "==", "public"))
+      );
+      const publicDiscountDataArray = publicDiscountData.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      const privateDiscountData = await getDocs(
+        query(
+          collection(db, "vouchers"),
+          where("visibility", "==", "private"),
+          where("userId", "==", currentUser.currentUser.uid)
+        )
+      );
+      const privateDiscountDataArray = privateDiscountData.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      const combinedDiscountData = [
+        ...publicDiscountDataArray,
+        ...privateDiscountDataArray,
+      ];
+
+      setDiscountData(combinedDiscountData);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching discounts data:", error);
+    }
+  };
+
+  useEffect(() => {
+    console.log(currentUser.currentUser.uid);
+    console.log("Discount Data : ", discountData);
+    DiscountData();
+  }, []);
+
+  const handleDiscountSubmit = async () => {
+    console.log("asdasdasd");
+    const appliedDiscount = discountData.find(
+      (discount) => discount.code === discountCode
+    );
+    console.log(appliedDiscount);
+    if (appliedDiscount) {
+      // Find discount ID
+      console.log("asd", appliedDiscount.id);
+      const discountId = appliedDiscount.id;
+      setDiscountID(discountId);
+      setDiscount(appliedDiscount.discountValue);
+      setDiscountType(appliedDiscount.discountType);
+      setDiscountStatusMssg("Discount code applied successfully!");
+
+      try {
+        // Update the discount to set isActive to false
+        await updateDoc(doc(db, "vouchers", discountId), {
+          isActive: false,
+        });
+      } catch (error) {
+        console.error("Error updating discount status:", error);
+      }
+    } else {
+      setDiscount(0);
+      setDiscountID("");
+      setDiscountCode("");
+      setDiscountType("");
+      setDiscountStatusMssg("Invalid discount code!");
+    }
+  };
+
+  const handleCardNoChange = (e) => {
+    let value = e.target.value.replace(/\D/g, "");
+    if (value.length > 16) {
+      value = value.slice(0, 16);
+    }
+    setCardNo(
+      value
+        .match(/.{1,4}/g)
+        ?.join(" ")
+        .slice(0, 19) || ""
+    );
+  };
+
+  const handleExpiryChange = (e) => {
+    let value = e.target.value.replace(/\D/g, "");
+    if (value.length > 4) {
+      value = value.slice(0, 4);
+    }
+    if (value.length > 2) {
+      value = value.slice(0, 2) + "/" + value.slice(2);
+    }
+    setExpiry(value);
   };
 
   const handleSubmit = async () => {
-    // // Check if all required fields are filled
-    // if (!email || !cardHolder || !cardNo || !expiry || !cvc) {
-    //   Swal.fire({
-    //     icon: "error",
-    //     title: "Missing Information",
-    //     text: "Please fill in all required fields before submitting.",
-    //   });
-    //   return;
-    // }
-  
-    // // Validate card information format
-    // const cardNoPattern = /\d{4}\d{4}\d{4}\d{4}/;
-    // const expiryPattern = /(0[1-9]|1[0-2])\/[0-9]{2}/;
-    // const cvcPattern = /\d{3}/;
-  
-    // if (!cardNoPattern.test(cardNo)) {
-    //   Swal.fire({
-    //     icon: "error",
-    //     title: "Invalid Card Number",
-    //     text: "Please enter a valid card number (xxxx-xxxx-xxxx-xxxx).",
-    //   });
-    //   return;
-    // }
-  
-    // if (!expiryPattern.test(expiry)) {
-    //   Swal.fire({
-    //     icon: "error",
-    //     title: "Invalid Expiry Date",
-    //     text: "Please enter a valid expiry date (MM/YY).",
-    //   });
-    //   return;
-    // }
-  
-    // if (!cvcPattern.test(cvc)) {
-    //   Swal.fire({
-    //     icon: "error",
-    //     title: "Invalid CVC",
-    //     text: "Please enter a valid CVC (3 digits).",
-    //   });
-    //   return;
-    // }
-  
-    try {
-      console.log("Enter")
-      // Update payment status in the database
-      await updateDoc(doc(db, "fees", id), {
-        paymentStatus: true,
-        paidAmount: total,
-        paymentDate: new Date(),
-      }).then(async() => {
-
-      });
- 
-      // Display success message
-      await Swal.fire({
-        icon: "success",
-        title: "Payment Successful",
-        text: "Thank you for your payment!",
-        confirmButtonText: "Back to Fee Payment Page",
-      }).then((result) => {
-        if (result.isConfirmed) {
-          navigate("/parent/fee");
-        }
-      });
-    } catch (error) {
-      console.error("Error submitting payment:", error);
-      // Handle any errors that occur during payment submission
+    if (!email || !cardHolder || !cardNo || !expiry || !cvc) {
       Swal.fire({
         icon: "error",
-        title: "Payment Error",
-        text: "An error occurred while processing your payment. Please try again later.",
+        title: "Missing Information",
+        text: "Please fill in all required fields before submitting.",
       });
+      return;
     }
+
+    const cardNoPattern = /\d{4} \d{4} \d{4} \d{4}/;
+    const expiryPattern = /(0[1-9]|1[0-2])\/[0-9]{2}/;
+    const cvcPattern = /\d{3}/;
+
+    if (!cardNoPattern.test(cardNo)) {
+      Swal.fire({
+        icon: "error",
+        title: "Invalid Card Number",
+        text: "Please enter a valid card number (xxxx xxxx xxxx xxxx).",
+      });
+      return;
+    }
+
+    if (!expiryPattern.test(expiry)) {
+      Swal.fire({
+        icon: "error",
+        title: "Invalid Expiry Date",
+        text: "Please enter a valid expiry date (MM/YY).",
+      });
+      return;
+    }
+
+    if (!cvcPattern.test(cvc)) {
+      Swal.fire({
+        icon: "error",
+        title: "Invalid CVC",
+        text: "Please enter a valid CVC (3 digits).",
+      });
+      return;
+    }
+
+    // Add confirmation prompt before final submission
+    Swal.fire({
+      title: "Confirm Payment",
+      text: `You are about to pay RM ${total.toFixed(
+        2
+      )}. Do you want to proceed?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, confirm",
+      cancelButtonText: "No, cancel",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          if (discountID) {
+            await updateDoc(doc(db, "fees", id), {
+              paymentStatus: true,
+              paidAmount: total,
+              paymentDate: new Date(),
+              isDiscount: true,
+              DiscountID: discountID,
+            });
+
+            await updateDoc(doc(db, "vouchers", discountID), {
+              isActive: false,
+            });
+          } else {
+            await updateDoc(doc(db, "fees", id), {
+              paymentStatus: true,
+              paidAmount: total,
+              paymentDate: new Date(),
+              isDiscount: false,
+              DiscountID: null,
+            });
+          }
+
+          await Swal.fire({
+            icon: "success",
+            title: "Payment Successful",
+            text: "Thank you for your payment!",
+            confirmButtonText: "Back to Fee Payment Page",
+          }).then((result) => {
+            if (result.isConfirmed) {
+              navigate("/parent/fee");
+            }
+          });
+        } catch (error) {
+          console.error("Error submitting payment:", error);
+          Swal.fire({
+            icon: "error",
+            title: "Payment Error",
+            text: "An error occurred while processing your payment. Please try again later.",
+          });
+        }
+      }
+    });
   };
-  
+
   return (
     <>
       {loading ? (
         <CardLoading loading={loading} />
       ) : (
-        <div className="relative mx-auto px-4 py-8 flex flex-col bg-white  min-w-0 break-words w-full shadow-lg rounded">
-          <header className="flex justify-center border-b  py-4 sm:text-base lg:text-lg md:text-lg sm:flex-row sm:px-10 lg:px-20 xl:px-32 px-5">
+        <div className="relative mx-auto px-4 py-8 flex flex-col bg-white min-w-0 break-words w-full shadow-lg rounded">
+          <header className="flex justify-center border-b py-4 sm:text-base lg:text-lg md:text-lg sm:flex-row sm:px-10 lg:px-20 xl:px-32 px-5">
             <a href="#" className="text-2xl font-bold text-gray-800">
               PLMM Tuition Centre Payment Page
             </a>
           </header>
 
-          {/* Main Content */}
           <main className="grid sm:px-10 lg:grid-cols-2 lg:px-20 xl:px-32">
-            {/* Order Summary */}
             <div className="px-4 pt-8">
               <p className="text-xl font-medium text-center">Payment Summary</p>
               <p className="text-gray-400 text-center">
                 Check your items before paying the fee
               </p>
-              {/* Products */}
               <div className="mt-8 space-y-3 rounded-lg border border-gray-400 px-2 py-4 sm:px-6">
                 {payment.map((fee) => (
                   <div
@@ -190,14 +317,12 @@ function PaymentPage() {
               </div>
             </div>
 
-            {/* Payment Details */}
             <div className="mt-10 bg-gray-50 px-4 pt-8 lg:mt-0">
               <p className="text-xl font-medium">Payment Details</p>
               <p className="text-gray-400">
                 Complete your payment by providing your payment details.
               </p>
               <div>
-                {/* Email */}
                 <label
                   htmlFor="email"
                   className="mt-4 mb-2 block text-sm font-medium"
@@ -213,7 +338,6 @@ function PaymentPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
-                {/* Card Holder */}
                 <label
                   htmlFor="card-holder"
                   className="mt-4 mb-2 block text-sm font-medium"
@@ -230,8 +354,6 @@ function PaymentPage() {
                   onChange={(e) => setCardHolder(e.target.value)}
                   required
                 />
-                {/* Card Details */}
-                {/* Card Number */}
                 <label
                   htmlFor="card-no"
                   className="mt-4 mb-2 block text-sm font-medium"
@@ -247,23 +369,21 @@ function PaymentPage() {
                       className="w-full rounded-md border border-gray-200 px-2 py-3 pl-11 text-sm shadow-sm outline-none focus:z-10 focus:border-blue-500 focus:ring-blue-500"
                       placeholder="8888 8888 8888 8888"
                       value={cardNo}
-                      onChange={(e) => setCardNo(e.target.value)}
-                      pattern="\d{4}-\d{4}-\d{4}-\d{4}"
+                      onChange={handleCardNoChange}
+                      maxLength={19}
                       required
                     />
                   </div>
-                  {/* Expiry Date */}
                   <input
                     type="text"
                     name="credit-expiry"
                     className="w-full rounded-md border border-gray-200 px-2 py-3 text-sm shadow-sm outline-none focus:z-10 focus:border-blue-500 focus:ring-blue-500"
                     placeholder="MM/YY"
                     value={expiry}
-                    onChange={(e) => setExpiry(e.target.value)}
-                    pattern="(0[1-9]|1[0-2])\/[0-9]{2}"
+                    onChange={handleExpiryChange}
+                    maxLength={5}
                     required
                   />
-                  {/* CVC */}
                   <input
                     type="text"
                     name="credit-cvc"
@@ -272,15 +392,15 @@ function PaymentPage() {
                     value={cvc}
                     onChange={(e) => setCvc(e.target.value)}
                     pattern="\d{3}"
+                    maxLength={3}
                     required
                   />
                 </div>
 
-                {/* Total */}
                 <div className="mt-6 flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-900">Subtotal</p>
                   <p className="font-semibold text-gray-900">
-                    ${subtotal.toFixed(2)}
+                    RM {subtotal.toFixed(2)}
                   </p>
                 </div>
                 <div className="mt-6 flex items-center justify-between">
@@ -297,8 +417,8 @@ function PaymentPage() {
                       name="discount"
                       className="border rounded-md px-3 py-2 text-sm outline-none focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter discount code"
-                      value={discount}
-                      onChange={handleDiscountChange}
+                      value={discountCode}
+                      onChange={(e) => setDiscountCode(e.target.value)}
                     />
                     <button
                       type="button"
@@ -309,19 +429,19 @@ function PaymentPage() {
                     </button>
                   </div>
                 </div>
+                <p className="text-sm text-green-500">{discountStatusMssg}</p>
                 <div className="mt-6 flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-900">Total</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    ${total.toFixed(2)}
+                    RM {total.toFixed(2)}
                   </p>
                 </div>
               </div>
-              {/* Place Order Button */}
               <button
                 className="mt-4 mb-8 w-full rounded-md bg-gray-900 px-6 py-3 font-medium text-white"
                 onClick={handleSubmit}
               >
-                Place Order
+                Pay Now
               </button>
             </div>
           </main>

@@ -10,6 +10,7 @@ import HeaderEmpty from "../components/Headers/HeaderEmpty";
 import FooterAdmin from "../components/Footers/FooterAdmin.js";
 import Dashboard from "../views/Teacher/Dashboard.js";
 import Profile from "../views/Teacher/Profile";
+import ChangePassword from "../views/Teacher/ChangePassword.js";
 import ClassesView from "../views/Teacher/ClassesView";
 import CardRecordAttendance from "../components/Cards/TeacherCard/CardRecordAttendance";
 import CardEditAttendance from "../components/Cards/TeacherCard/CardEditAttendance";
@@ -19,6 +20,7 @@ import CardViewClassAttendance from "../components/Cards/TeacherCard/CardViewCla
 import { AuthContext } from "../config/context/AuthContext.js";
 import CardViewAttendance from "../components/Cards/TeacherCard/CardViewAttendance.js";
 import ClassesGrade from "../views/Teacher/ClassesGrade.js";
+import ClassesGradeView from "../views/Teacher/ClassesGradeView.js";
 import ClassesAddTestResult from "../views/Teacher/ClassesAddTestResult.js";
 
 export default function Teacher() {
@@ -38,15 +40,19 @@ export default function Teacher() {
         setHeaderComponent(<HeaderEmpty />);
         break;
       case location.pathname === "/teacher/fee":
-        setHeaderComponent(<HeaderFee />);
+        setHeaderComponent(<HeaderEmpty />);
         setPageTitle("Fees");
         break;
+      case location.pathname.startsWith("/teacher/change-password"):
+        setHeaderComponent(<HeaderEmpty />);
+        setPageTitle("Changing Password");
+        break;
       case location.pathname.startsWith("/teacher/attendance"):
-        setHeaderComponent(<HeaderAttendance />);
+        setHeaderComponent(<HeaderEmpty />);
         setPageTitle("Attendance");
         break;
       case location.pathname.startsWith("/teacher/classes"):
-        setHeaderComponent(<HeaderClasses />);
+        setHeaderComponent(<HeaderEmpty />);
         setPageTitle("Classes");
         break;
       default:
@@ -56,9 +62,7 @@ export default function Teacher() {
     }
   }, [location.pathname]);
 
-  useEffect(() => {
-    
-  }, [currentUser]);
+  useEffect(() => {}, [currentUser]);
 
   const RequireTeacher = ({ children }) => {
     if (currentUser && currentUser.role === "teacher") {
@@ -79,6 +83,7 @@ export default function Teacher() {
             <Routes>
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="change-password" element={<ChangePassword />} />
               <Route path="attendance" element={<AttendanceView />} />
               <Route
                 path="attendance/class/:id"
@@ -99,8 +104,18 @@ export default function Teacher() {
               <Route path="classes" element={<ClassesView />} />
               <Route path="classes/view/:id" element={<ClassesView />} />
               <Route path="classes/grade/:id" element={<ClassesGrade />} />
-              <Route path="classes/grade/:id/new" element={<ClassesAddTestResult />} />
-              <Route path="classes/grade/:id/edit/:testid" element={<ClassesGradeEdit />} />
+              <Route
+                path="classes/grade/:id/new"
+                element={<ClassesAddTestResult />}
+              />
+              <Route
+                path="classes/grade/:id/edit/:testid"
+                element={<ClassesGradeEdit />}
+              />
+              <Route
+                path="classes/grade/:id/view/:testid"
+                element={<ClassesGradeView />}
+              />
             </Routes>
             <FooterAdmin />
           </div>

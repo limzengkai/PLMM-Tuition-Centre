@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../config/context/AuthContext";
 import { toast } from "react-toastify";
 import { ToastContainer } from "react-toastify";
@@ -8,7 +8,6 @@ import { signOut } from "firebase/auth";
 import { auth } from "../../config/firebase";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { verifyEmail } = useContext(AuthContext);
@@ -20,12 +19,12 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await verifyEmail(email);
+      await verifyEmail();
       toast.success("Verification email sent successfully!");
     } catch (error) {
       setError("Error sending verification email: " + error.message);
     }
-
+    
     setLoading(false);
   };
 
@@ -57,13 +56,19 @@ export default function Login() {
 
               <div className="text-center mt-6 bg-slate-600 rounded-lg">
                 <button
-                  className="bg-blueGray-800 text-white active:bg-blueGray-600 text-sm font-bold uppercase px-6 py-3 rounded shadow hover:shadow-lg outline-none focus:outline-none mr-1 mb-1 w-full ease-linear transition-all duration-150"
+                  className="bg-slate-800 text-white hover:bg-slate-600 active:bg-slate-700 text-sm font-bold uppercase px-6 py-3 rounded shadow hover:shadow-lg outline-none focus:outline-none mr-1 mb-1 w-full ease-linear transition-all duration-150"
                   type="submit"
                   onClick={handleSubmit}
                   disabled={loading}
                 >
                   {loading ? "Sending ..." : "Resend Verification Email"}
                 </button>
+                {/* Error Message */}
+                {error && (
+                  <div className="text-red-500 text-center text-sm mt-2">
+                    {error}
+                  </div>
+                )}
               </div>
             </form>
             <div className="flex justify-center">
@@ -81,7 +86,7 @@ export default function Login() {
               {/* <br /> */}
               <button
                 onClick={handleSignOut}
-                className="font-medium text-blue-600 hover:text-blue-500"
+                className="bg-blue-500 text-white active:bg-blue-700 hover:bg-blue-600 text-sm font-bold uppercase px-6 py-3 rounded shadow hover:shadow-lg outline-none focus:outline-none mr-1 mb-1 w-full ease-linear transition-all duration-150"
               >
                 Sign Out
               </button>

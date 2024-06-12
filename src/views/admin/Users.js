@@ -4,10 +4,11 @@ import { db } from "../../config/firebase";
 import { getDocs, collection, orderBy, query } from "firebase/firestore";
 
 // Components
-import CardUsersManagement from "../../components/Cards/AdminCard/CardUsersManagement";
-import CardUsersRegistration from "../../components/Cards/AdminCard/CardUsersRegistration";
+import CardUsersManagement from "../../components/Cards/AdminCard/Users/Management/CardUsersManagement";
+import CardUsersRegistration from "../../components/Cards/AdminCard/Users/Registration/CardUsersRegistration";
 import CardLoading from "../../components/Cards/CardLoading";
-import CardUsersRegistrationRejected from "../../components/Cards/AdminCard/CardUsersRegistrationRejected";
+import CardUsersRegistrationRejected from "../../components/Cards/AdminCard/Users/Registration/CardUsersRegistrationRejected";
+import CardUsersRegistrationApproved from "../../components/Cards/AdminCard/Users/Registration/CardUsersRegistrationApproved";
 
 async function fetchUsersData() {
   try {
@@ -43,16 +44,17 @@ export default function Users() {
   return (
     <div className="flex flex-wrap">
       <div className="w-full px-4">
-        <div className="relative flex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-lg rounded">
+        <div className="relative fFlex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-lg rounded">
           {loading ? (
             <CardLoading loading={loading} />
           ) : location.pathname === "/admin/users" ? (
             <CardUsersManagement users={users} />
           ) : location.pathname === "/admin/users/registration" ? (
             <CardUsersRegistration />
-          ) : (
+          ) : location.pathname === "/admin/users/registration/rejected" ? (
             <CardUsersRegistrationRejected />
-          )}
+          ) : <CardUsersRegistrationApproved />
+        }
         </div>
       </div>
     </div>

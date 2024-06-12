@@ -1,7 +1,6 @@
 import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../../config/context/AuthContext";
 import PropTypes from "prop-types";
-import CardPagination from "../CardPagination";
 import CardLoading from "../CardLoading";
 import {
   collection,
@@ -9,256 +8,236 @@ import {
   getDoc,
   getDocs,
   query,
-  setDoc,
   where,
 } from "firebase/firestore";
 import Swal from "sweetalert2";
 import { db } from "../../../config/firebase";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 function CardClassesOffered({ color }) {
   const { currentUser } = useContext(AuthContext);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [teachers, setTeachers] = useState([]); // State to store teachers data
+  const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [childrenDetails, setChildrenDetails] = useState([]); // State to store children's details
-  const [selectedClass, setSelectedClass] = useState(null); // State to track selected class
+  const [childrenDetails, setChildrenDetails] = useState([]);
   const location = useLocation();
-  const classesPerPage = 5; // Number of classes to display per page
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchChildrenClasses = async () => {
-      try {
-        const childrenRef = doc(db, "parent", currentUser.uid);
-        const childrenSnapshot = await getDoc(childrenRef);
-        const childrenData = childrenSnapshot.data();
+  const fetchChildrenClasses = async () => {
+    try {
+      const childrenRef = doc(db, "parent", currentUser.uid);
+      const childrenSnapshot = await getDoc(childrenRef);
+      const childrenData = childrenSnapshot.data();
 
-        if (childrenData && childrenData.children) {
-          const childrenIDs = childrenData.children;
-          const childClassesPromises = childrenIDs.map(async (childID) => {
-            const studentRef = doc(db, "students", childID);
-            const studentSnapshot = await getDoc(studentRef);
-            const studentData = studentSnapshot.data();
-            console.log("Student data for ID:", childID, studentData);
-            if (studentData) {
-              const classRef = query(
-                collection(db, "class"),
-                where("academicLevel", "==", studentData.educationLevel)
+      if (childrenData && childrenData.children) {
+        const childrenIDs = childrenData.children;
+        const childClassesResults = [];
+
+        for (const childID of childrenIDs) {
+          const studentRef = doc(db, "students", childID);
+          const studentSnapshot = await getDoc(studentRef);
+          const studentData = studentSnapshot.data();
+          if (studentData) {
+            const classRef = query(
+              collection(db, "class"),
+              where("academicLevel", "==", studentData.educationLevel)
+            );
+            const classSnapshot = await getDocs(classRef);
+            const classesWithSchedule = [];
+
+            for (const classDoc of classSnapshot.docs) {
+              const ClassSchedule = collection(
+                db,
+                "class",
+                classDoc.id,
+                "Schedule"
               );
-              const classSnapshot = await getDocs(classRef);
-              const classData = classSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              }));
-              console.log("Classes data: ", classData);
+              const ScheduleSnapshot = await getDocs(ClassSchedule);
+              const ScheduleData = ScheduleSnapshot.docs.map((doc) =>
+                doc.data()
+              );
 
-              // Loop through each class snapshot to fetch schedule data
-              const classesWithSchedule = [];
-              for (const classDoc of classSnapshot.docs) {
-                // Get the schedule of the class
-                const ClassSchedule = collection(
-                  db,
-                  "class",
-                  classDoc.id,
-                  "Schedule"
-                );
-                const ScheduleSnapshot = await getDocs(ClassSchedule);
-                const ScheduleData = ScheduleSnapshot.docs.map((doc) =>
-                  doc.data()
-                );
-                console.log("Schedule data:", ScheduleData);
-
-                // Combine class data with schedule
-                const classDataWithSchedule = {
-                  id: classDoc.id,
-                  ...classDoc.data(),
-                  schedule: ScheduleData,
-                };
-                console.log("Class data with schedule:", classDataWithSchedule);
-
-                // Push the combined data to the array
-                classesWithSchedule.push(classDataWithSchedule);
-                console.log("Classes with schedule 1: ", classesWithSchedule);
-              }
-
-              console.log("Classes with schedule: ", classesWithSchedule);
-              console.log("Student data:", studentData);
-              classesWithSchedule.forEach((classItem) => {
-                studentData.registeredCourses.forEach((course) => {
-                  if (classItem.id === course) {
-                    const index = classesWithSchedule.findIndex(
-                      (item) => item.id === classItem.id
-                    );
-                    if (index > -1) {
-                      classesWithSchedule.splice(index, 1);
-                    }
-                  }
-                });
-              });
-
-              return {
-                id: childID,
-                studentDetails: studentData,
-                classes: classesWithSchedule,
+              const classDataWithSchedule = {
+                id: classDoc.id,
+                ...classDoc.data(),
+                schedule: ScheduleData,
               };
-            } else {
-              console.log("Student data not found for ID:", childID);
-              return null;
+              classesWithSchedule.push(classDataWithSchedule);
             }
-          });
-          const childClasses = await Promise.all(childClassesPromises);
 
-          // get the teacher userID
-          const teacherRef = collection(db, "teacher");
-          const teacherSnapshot = await getDocs(teacherRef);
-          const teacherData = teacherSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-
-          // get the teacher Details
-          const teacherUserRef = collection(db, "users");
-          const teacherUserSnapshot = await getDocs(teacherUserRef);
-          const teacherUserData = teacherUserSnapshot.docs.map((doc) =>
-            doc.data()
-          );
-          teacherData.forEach((teacher, index) => {
-            teacherData[index].firstName = teacherUserData[index].firstName;
-            teacherData[index].lastName = teacherUserData[index].lastName;
-          });
-          console.log("Teachers data:", teacherData);
-          setTeachers(teacherData);
-          console.log("Children classes:", childClasses);
-          setChildrenDetails(childClasses);
-          setLoading(false);
-        } else {
-          console.log("No children found for user ID:", currentUser.uid);
-          setLoading(false);
+            for (let i = 0; i < classesWithSchedule.length; i++) {
+              for (let j = 0; j < studentData.registeredCourses.length; j++) {
+                if (
+                  classesWithSchedule[i].id === studentData.registeredCourses[j]
+                ) {
+                  const index = classesWithSchedule.findIndex(
+                    (item) => item.id === studentData.registeredCourses[j]
+                  );
+                  if (index > -1) {
+                    classesWithSchedule.splice(index, 1);
+                  }
+                }
+              }
+            }
+            childClassesResults.push({
+              id: childID,
+              studentDetails: studentData,
+              classes: classesWithSchedule,
+            });
+          } else {
+            console.log("Student data not found for ID: ", childID);
+          }
         }
-      } catch (error) {
-        console.error("Error fetching children classes:", error);
+
+        const teacherRef = collection(db, "teacher");
+        const teacherSnapshot = await getDocs(teacherRef);
+        const teacherData = teacherSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        const teacherUserRef = collection(db, "users");
+        const teacherUserSnapshot = await getDocs(teacherUserRef);
+        const teacherUserData = teacherUserSnapshot.docs.map((doc) =>
+          doc.data()
+        );
+        teacherData.forEach((teacher, index) => {
+          teacherData[index].firstName = teacherUserData[index].firstName;
+          teacherData[index].lastName = teacherUserData[index].lastName;
+        });
+
+        setTeachers(teacherData);
+        setChildrenDetails(childClassesResults.filter((item) => item !== null));
+        setLoading(false);
+      } else {
         setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching children classes:", error);
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchChildrenClasses();
   }, []);
 
-  const handleRegisterClass = async (studentID, classId) => {
-    console.log("Registering class for student ID:  ", studentID, classId);
+  const calculateFee = (schedule) => {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    const dayMapping = {
+      Sunday: 0,
+      Monday: 1,
+      Tuesday: 2,
+      Wednesday: 3,
+      Thursday: 4,
+      Friday: 5,
+      Saturday: 6,
+    };
+
+    // Function to calculate the number of specific days in a month
+    const countSpecificDaysInMonth = (year, month, day) => {
+      let count = 0;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(year, month, i);
+        if (date.getDay() === day) {
+          count++;
+        }
+      }
+      return count;
+    };
+
+    // Function to calculate remaining specific days in the month
+    const countRemainingSpecificDaysInMonth = (
+      year,
+      month,
+      day,
+      currentDay
+    ) => {
+      let count = 0;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let i = currentDay; i <= daysInMonth; i++) {
+        const date = new Date(year, month, i);
+        if (date.getDay() === day) {
+          count++;
+        }
+      }
+      return count;
+    };
+
+    let totalClasses = 0;
+    let remainingClasses = 0;
+
+    schedule.forEach((classSchedule) => {
+      const dayOfWeek = dayMapping[classSchedule.day]; // Convert day name to day number
+      totalClasses += countSpecificDaysInMonth(
+        currentYear,
+        currentMonth,
+        dayOfWeek
+      );
+      remainingClasses += countRemainingSpecificDaysInMonth(
+        currentYear,
+        currentMonth,
+        dayOfWeek,
+        currentDate.getDate()
+      );
+    });
+
+    return {
+      totalClasses,
+      remainingClasses,
+    };
+  };
+
+  const handleRegisterClass = async (CourseName, studentID, classId, fee, schedule) => {
     try {
       const { isConfirmed } = await Swal.fire({
-        title: 'Confirm Registration',
-        text: 'Are you sure you want to register for this class?',
-        icon: 'question',
+        title: "Confirm Registration",
+        text: "Are you sure you want to register for this class?",
+        icon: "question",
         showCancelButton: true,
-        confirmButtonText: 'Register',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: "Register",
+        cancelButtonText: "Cancel",
       });
-  
+
       if (isConfirmed) {
-        // Update the student's registeredCourses array
-        const studentRef = doc(db, "students", studentID);
-        const studentSnapshot = await getDoc(studentRef);
-        const studentData = studentSnapshot.data();
-        // Check if registeredCourses array exists, if not create it
-        if (!studentData.registeredCourses) {
-            studentData.registeredCourses = [];
-            studentData.registeredCourses.push(classId);
-            await setDoc(studentRef, studentData);
-        } else if (studentData.registeredCourses.includes(classId)) {
-            console.log("Student already registered for this class");
-            return;
-        } else {
-            studentData.registeredCourses.push(classId);
-            await setDoc(studentRef, studentData);
-        }
-  
-        // Update the class's students array
-        const classRef = doc(db, "class", classId);
-        const classSnapshot = await getDoc(classRef);
-        const classData = classSnapshot.data();
-        // Check if students array exists, if not create it
-        if (!classData.studentID) {
-          classData.studentID = [];
-          classData.studentID.push(studentID);
-          await setDoc(classRef, classData);
-        } else if (classData.studentID.includes(studentID)) {
-          console.log("Student already registered for this class");
-          return;
-        } else {
-          classData.studentID.push(studentID);
-          await setDoc(classRef, classData);
-        }
-  
-        // Update the state to reflect the registration
-        setChildrenDetails((prevChildrenDetails) => {
-          const updatedChildrenDetails = prevChildrenDetails.map((child) => {
-            if (child.id === studentID) {
-              const updatedClasses = child.classes.map((classItem) => {
-                if (classItem.id === classId) {
-                  return {
-                    ...classItem,
-                    studentID: [...classItem.studentID, studentID],
-                  };
-                }
-                return classItem;
-              });
-              return {
-                ...child,
-                classes: updatedClasses,
-              };
-            }
-            return child;
-          });
-          return updatedChildrenDetails;
-        });
-  
-        // Show success message
+        console.log(calculateFee(schedule));
+        const totalClasses = calculateFee(schedule).totalClasses;
+        const remainingClasses = calculateFee(schedule).remainingClasses;
+        const totalFee = (fee / totalClasses) * remainingClasses;
+
         Swal.fire({
-          icon: 'success',
-          title: 'Success!',
-          text: 'You have successfully registered for the class.',
+          title: "Payment Required",
+          text: `The total fee is RM${totalFee.toFixed(
+            2
+          )}. Proceed to payment?`,
+          icon: "info",
+          showCancelButton: true,
+          confirmButtonText: "Proceed",
+          cancelButtonText: "Cancel",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate(`/parent/new-class/payment`, {
+              state: {
+                courseName: CourseName,
+                totalFee: totalFee,
+                studentID: studentID,
+                classId: classId,
+              },
+            });
+          }
         });
       }
     } catch (error) {
       console.error("Error registering class:", error);
       Swal.fire({
-        icon: 'error',
-        title: 'Error!',
-        text: 'An error occurred while registering for the class. Please try again later.',
+        icon: "error",
+        title: "Error!",
+        text: "An error occurred while registering for the class. Please try again later.",
       });
     }
-  };
-
-  // Filter classes based on search term and active tab
-  const filteredClasses = childrenDetails.filter((student) => {
-    const filteredStudentClasses = student.classes.filter((classItem) =>
-      classItem.CourseName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    return filteredStudentClasses.length > 0;
-  });
-
-  // Calculate indexes for pagination
-  const indexOfLastClass = currentPage * classesPerPage;
-  const indexOfFirstClass = indexOfLastClass - classesPerPage;
-  const currentClasses = filteredClasses.slice(
-    indexOfFirstClass,
-    indexOfLastClass
-  );
-
-  // Change page
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  // Calculate total number of pages
-  const totalRegisteredPages = Math.ceil(
-    filteredClasses.length / classesPerPage
-  );
-
-  // Function to close class details modal
-  const handleCloseModal = () => {
-    setSelectedClass(null);
   };
 
   const getTime = (timestamp) => {
@@ -291,7 +270,6 @@ function CardClassesOffered({ color }) {
             (color === "light" ? "bg-white" : "bg-lightBlue-900 text-white")
           }
         >
-          {/* Tabs for Registered Classes and Offered Classes */}
           <div className="rounded-t mb-0 px-4 py-3 border-0">
             <div className="flex flex-wrap items-center">
               <div className="relative w-full px-4 max-w-full flex-grow flex-1">
@@ -309,19 +287,7 @@ function CardClassesOffered({ color }) {
               </div>
             </div>
           </div>
-          {/* Class table */}
           <div className="block w-full overflow-x-auto">
-            {/* Search input */}
-            <div className="flex justify-end my-4 mx-8">
-              <input
-                type="text"
-                placeholder="Search by subject..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500"
-                style={{ width: "300px" }}
-              />
-            </div>
             <div className="flex mb-4 mx-4">
               <Link
                 to="/parent/classes"
@@ -344,76 +310,74 @@ function CardClassesOffered({ color }) {
                 Class Offered
               </Link>
             </div>
-            {/* Class table */}
-            {childrenDetails.length >0 ? childrenDetails.map((student, index) => (
-              <div key={index} className="mb-8">
-                <h2 className="text-lg font-semibold mb-4 mx-5">
-                  Student {index + 1}:{" "}
-                  {student.studentDetails.firstName &&
-                  student.studentDetails.lastName
-                    ? student.studentDetails.firstName +
-                      " " +
-                      student.studentDetails.lastName
-                    : "Name Not Available"}
-                </h2>
-                <table className="items-center w-full bg-transparent border-collapse">
-                  {/* Table headers */}
-                  <thead>
-                    <tr>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Subject
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        School Level
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Class Time
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Register Number
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Monthly Fee
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Teacher Name
-                      </th>
-                      <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
-                        Register
-                      </th>
-                    </tr>
-                  </thead>
-                  {/* Table body */}
-                  <tbody>
-                    {student.classes.length > 0 ? (
-                      student.classes.map((classItem) => (
-                        <tr key={classItem.id}>
-                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                            {classItem.CourseName}
-                          </td>
-                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                            {classItem.academicLevel}
-                          </td>
-                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                            {classItem.schedule.map((time, index) => (
-                              <div key={index}>
-                                {time.day} ({getTime(time.startTime)} -{" "}
-                                {getTime(time.endTime)})
-                              </div>
-                            ))}
-                          </td>
-                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                            {classItem.studentID.length} / {classItem.MaxRegisteredStudent}
-                          </td>
-                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                            {classItem.fee}
-                          </td>
-                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                            {getTeacherName(classItem.teacher)}
-                          </td>
-                          {
-                            // Check if the class is full
-                            classItem.studentID.length >= classItem.MaxRegisteredStudent ? (
+            {childrenDetails.length > 0 ? (
+              childrenDetails.map((student, index) => (
+                <div key={index} className="mb-8">
+                  <h2 className="text-lg font-semibold mb-4 mx-5">
+                    Student {index + 1}:{" "}
+                    {student.studentDetails.firstName &&
+                    student.studentDetails.lastName
+                      ? student.studentDetails.firstName +
+                        " " +
+                        student.studentDetails.lastName
+                      : "Name Not Available"}
+                  </h2>
+                  <table className="items-center w-full bg-transparent border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                          Subject
+                        </th>
+                        <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                          School Level
+                        </th>
+                        <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                          Class Time
+                        </th>
+                        <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                          Register Number
+                        </th>
+                        <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                          Monthly Fee
+                        </th>
+                        <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                          Teacher Name
+                        </th>
+                        <th className="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left">
+                          Register
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {student.classes.length > 0 ? (
+                        student.classes.map((classItem) => (
+                          <tr key={classItem.id}>
+                            <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                              {classItem.CourseName}
+                            </td>
+                            <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                              {classItem.academicLevel}
+                            </td>
+                            <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                              {classItem.schedule.map((time, index) => (
+                                <div key={index}>
+                                  {time.day} ({getTime(time.startTime)} -{" "}
+                                  {getTime(time.endTime)})
+                                </div>
+                              ))}
+                            </td>
+                            <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                              {classItem.studentID.length} /{" "}
+                              {classItem.MaxRegisteredStudent}
+                            </td>
+                            <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                              {classItem.fee}
+                            </td>
+                            <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                              {getTeacherName(classItem.teacher)}
+                            </td>
+                            {classItem.studentID.length >=
+                            classItem.MaxRegisteredStudent ? (
                               <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4 text-red-500">
                                 Class Full
                               </td>
@@ -422,34 +386,36 @@ function CardClassesOffered({ color }) {
                                 <button
                                   className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
                                   onClick={() =>
-                                    handleRegisterClass(student.id, classItem.id)
+                                    handleRegisterClass(
+                                      classItem.CourseName,
+                                      student.id,
+                                      classItem.id,
+                                      classItem.fee,
+                                      classItem.schedule
+                                    )
                                   }
                                 >
                                   Register
                                 </button>
                               </td>
-                            )
-                          }
+                            )}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr className="text-center mt-3 font-bold">
+                          <td colSpan="7">No classes available</td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr  className="text-center mt-3 font-bold">
-                        <td colSpan="7">
-                          No classes available
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-red-500">
+                No classes available
               </div>
-            )): <div className="text-center text-red-500">No classes available</div>}
+            )}
           </div>
-          {/* Pagination */}
-          <CardPagination
-            currentPage={currentPage}
-            totalPages={totalRegisteredPages}
-            paginate={paginate}
-          />
         </div>
       )}
     </>

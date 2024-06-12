@@ -2,8 +2,11 @@ import React, { useContext, useState } from "react";
 import { db } from "../../config/firebase";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../config/context/AuthContext";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
 import { doc, getDoc } from "firebase/firestore";
+import ReCAPTCHA from "react-google-recaptcha";
+
+const RECAPTCHA_SITE_KEY = process.env.REACT_APP_GOOGLE_RECAPTCHA_SITE_KEY;
 
 export default function Login() {
   const [error, setError] = useState(false);
@@ -11,6 +14,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
   const navigate = useNavigate();
   const { logIn } = useContext(AuthContext);
 
@@ -18,14 +22,20 @@ export default function Login() {
     e.preventDefault();
     setError(false);
     setLoading(true);
-  
+
+    if (!recaptchaToken) {
+      setError("Please complete the reCAPTCHA");
+      setLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await logIn(email, password);
       const user = userCredential.user;
-      
+
       if (user) {
         const userRoleDoc = await getDoc(doc(db, "users", user.uid));
-        
+
         if (userRoleDoc.exists()) {
           const userData = userRoleDoc.data();
           redirectBasedOnRole(userData.role);
@@ -35,16 +45,20 @@ export default function Login() {
       navigate("/");
     } catch (error) {
       setLoading(false);
-     
+
       // Handle different login errors
-      if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
+      if (
+        error.code === "auth/user-not-found" ||
+        error.code === "auth/wrong-password"
+      ) {
         setError("Invalid email or password");
       } else if (error.code === "auth/user-disabled") {
         Swal.fire({
-          icon: 'error',
-          title: 'Account Disabled',
-          text: 'Your account has been disabled. Please contact admin via a call at 016-5165066.',
-          footer: '<button><a href="https://api.whatsapp.com/send?phone=60179533050&text=Hello,%20I%20need%20help%20with%20my%20account%20on%20your%20website target="_blank" ">Click here to contact admin via WhatsApp</a></button>'
+          icon: "error",
+          title: "Account Disabled",
+          text: "Your account has been disabled. Please contact admin via a call at 016-5165066.",
+          footer:
+            '<button><a href="https://api.whatsapp.com/send?phone=60179533050&text=Hello,%20I%20need%20help%20with%20my%20account%20on%20your%20website" target="_blank" ">Click here to contact admin via WhatsApp</a></button>',
         });
         setError("Your account has been disabled");
       } else {
@@ -52,7 +66,6 @@ export default function Login() {
       }
     }
   };
-  
 
   const redirectBasedOnRole = (role) => {
     switch (role) {
@@ -68,6 +81,10 @@ export default function Login() {
       default:
         navigate("/");
     }
+  };
+
+  const onChangehandler = (value) => {
+    setRecaptchaToken(value);
   };
 
   return (
@@ -89,9 +106,7 @@ export default function Login() {
                   <img
                     alt="..."
                     className="w-5 mr-1"
-                    src={
-                      require("../../assets/img/google.svg").default
-                    }
+                    src={require("../../assets/img/google.svg").default}
                   />
                   Google
                 </button>
@@ -108,7 +123,7 @@ export default function Login() {
                   <h1>{error}</h1>
                 </div>
               )}
-              <form>
+              <form onSubmit={handleLogin}>
                 <div className="relative w-full mb-3">
                   <label
                     className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -156,11 +171,17 @@ export default function Login() {
                   </div>
                 </div>
 
+                <div className="relative w-full mb-3">
+                  <ReCAPTCHA
+                    sitekey={RECAPTCHA_SITE_KEY}
+                    onChange={onChangehandler}
+                  />
+                </div>
+
                 <div className="text-center mt-6">
                   <button
                     className="bg-blueGray-800 text-white active:bg-blueGray-600 text-sm font-bold uppercase px-6 py-3 rounded shadow hover:shadow-lg outline-none focus:outline-none mr-1 mb-1 w-full ease-linear transition-all duration-150"
                     type="submit"
-                    onClick={handleLogin}
                   >
                     {loading ? "Sign In ..." : "Sign In"}
                   </button>
@@ -170,10 +191,7 @@ export default function Login() {
           </div>
           <div className="flex flex-wrap mt-6 relative">
             <div className="w-1/2">
-              <Link
-                to="/auth/forgot-password"
-                className="text-blueGray-200"
-              >
+              <Link to="/auth/forgot-password" className="text-blueGray-200">
                 <small>Forgot password?</small>
               </Link>
             </div>

@@ -2,9 +2,9 @@ import React from "react";
 import { useLocation } from "react-router-dom";
 
 // components
-import CardUsersManagementView from "../../components/Cards/AdminCard/CardUsersManagementView";
-import CardUsersManagementEdit from "../../components/Cards/AdminCard/CardUsersManagementEdit";
-import CardAddUser from "../../components/Cards/AdminCard/CardAddUser";
+import CardUsersManagementView from "../../components/Cards/AdminCard/Users/Management/CardUsersManagementView";
+import CardUsersManagementEdit from "../../components/Cards/AdminCard/Users/Management/CardUsersManagementEdit";
+import CardAddUser from "../../components/Cards/AdminCard/Users/Management/CardAddUser";
 
 export default function Users() {
   const location = useLocation();

@@ -1,12 +1,10 @@
 import React from "react";
-import { useLocation } from "react-router-dom";
 
 // components
-import CardUsersRegistrationView from "../../components/Cards/AdminCard/CardUsersRegistrationView";
+import CardUsersRegistrationView from "../../components/Cards/AdminCard/Users/Registration/CardUsersRegistrationView";
 
 
 export default function UsersRegistrationView() {
-  const location = useLocation();
   
   return (
     <>

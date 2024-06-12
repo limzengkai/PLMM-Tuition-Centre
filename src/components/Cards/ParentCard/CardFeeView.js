@@ -2,138 +2,159 @@ import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../../config/context/AuthContext";
 import { db } from "../../../config/firebase";
 import PropTypes from "prop-types";
-import { loadStripe } from "@stripe/stripe-js";
-import InvoiceModal from "../InvoiceModal"; // Import the InvoiceModal component
-import CardPagination from "../CardPagination";
+// import { loadStripe } from "@stripe/stripe-js";
+import InvoiceModal from "../InvoiceModal";
 import CardLoading from "../CardLoading";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  getDoc,
-  doc,
-} from "firebase/firestore";
-import { Link, useParams } from "react-router-dom";
+import Swal from "sweetalert2";
+import { collection, getDocs, getDoc, doc } from "firebase/firestore";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 function CardFeeView({ color }) {
   const { currentUser } = useContext(AuthContext);
   const { id } = useParams();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
   const [feePayments, setFeePayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [students, setStudents] = useState([]);
-  const [selectedPayment, setSelectedPayment] = useState(null); // State to track selected payment
-  const [projectsPerPage, setProjectsPerPage] = useState(2); // Number of projects to display per page
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false); // State to control invoice modal visibility
   const [userData, setUserData] = useState(null);
   const [fees, setFees] = useState([]);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const feePayment = doc(db, "fees", id);
-        const feePaymentDataSnapShot = await getDoc(feePayment);
-        const feePaymentData = {
-          id: feePaymentDataSnapShot.id,
-          ...feePaymentDataSnapShot.data(),
-        };
-        const feeClasses = collection(db, "fees", id, "Classes");
-        const feeClassesDataSnapShot = await getDocs(feeClasses);
-        const classesData = [];
-        feeClassesDataSnapShot.forEach((doc) => {
-          classesData.push({
-            id: doc.id,
-            ...doc.data(),
-          });
-        });
-        console.log("Classes data:", classesData);
-        const studentDataDoc = doc(db, "students", feePaymentData.StudentID);
-        const studentDataSnapshot = await getDoc(studentDataDoc);
-        const studentData = {
-          id: studentDataSnapshot.id,
-          ...studentDataSnapshot.data(),
-        };
-        console.log("Student data:", studentData);
-        const feePaymentDataWithStudentClasses = {
-          ...feePaymentData,
-          classes: classesData,
-          studentName: studentData.firstName + " " + studentData.lastName,
-        };
-        const feeData = {
-          id: id,
-          feeDetail: feePaymentDataSnapShot.data(),
-          classes: classesData
-        };
-        setFees(feeData);
-
-        setFeePayments(feePaymentDataWithStudentClasses);
-        setLoading(false);
-        console.log("Fee payment data 1:", feePaymentDataWithStudentClasses);
-      } catch (error) {
-        console.error("Error fetching data:", error);
+  const checkPublish = async () => {
+    try {
+      const feePayment = doc(db, "fees", id);
+      const feePaymentDataSnapShot = await getDoc(feePayment);
+      const feePaymentData = {
+        id: feePaymentDataSnapShot.id,
+        ...feePaymentDataSnapShot.data(),
+      };
+      if (feePaymentData.publish === false) {
+        return false;
+      } else {
+        return true;
       }
-    };
-
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    async function fetchUserData() {
-      try {
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDocSnapshot = await getDoc(userDocRef);
-        if (userDocSnapshot.exists()) {
-          const userData = userDocSnapshot.data();
-          setUserData(userData);
-          setLoading(false);
-        } else {
-          console.log("User not found");
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-        setLoading(false);
-      }
-    }
-
-    fetchUserData();
-  }, [id]);
-
-  useEffect(() => {
-    console.log("Fee payment data 3:", feePayments);
-  }, []);
-
-  const makePayment = async () => {
-    const stripe = await loadStripe(
-      "pk_test_51Ox8pMLX6vV4bYTHC6AR8YpbPIu5HWlfch5dauc8yvUUXwEz0gITpCUexMCGnKxMO29n2apcEvcfPCufOmtsk1fh00ujg1JGZi"
-    );
-    const paymentIntent = await fetch(
-      "http://localhost:4242/api/create-payment-intent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          items: [
-            {
-              id: feePayments.id,
-              classes: feePayments.classes.map((Class) => Class.Descriptions),
-            },
-          ],
-        }),
-      }
-    ).then((res) => res.json());
-    const result = await stripe.redirectToCheckout({
-      sessionId: paymentIntent.id,
-    });
-    if (result.error) {
-      console.error(result.error.message);
+    } catch (error) {
+      console.error("Error fetching data:", error);
     }
   };
+
+  const fetchData = async () => {
+    try {
+      const feePayment = doc(db, "fees", id);
+      const feePaymentDataSnapShot = await getDoc(feePayment);
+      const feePaymentData = {
+        id: feePaymentDataSnapShot.id,
+        ...feePaymentDataSnapShot.data(),
+      };
+      const feeClasses = collection(db, "fees", id, "Classes");
+      const feeClassesDataSnapShot = await getDocs(feeClasses);
+      const classesData = [];
+      feeClassesDataSnapShot.forEach((doc) => {
+        classesData.push({
+          id: doc.id,
+          ...doc.data(),
+        });
+      });
+      const studentDataDoc = doc(db, "students", feePaymentData.StudentID);
+      const studentDataSnapshot = await getDoc(studentDataDoc);
+      const studentData = {
+        id: studentDataSnapshot.id,
+        ...studentDataSnapshot.data(),
+      };
+      const feePaymentDataWithStudentClasses = {
+        ...feePaymentData,
+        classes: classesData,
+        studentName: studentData.firstName + " " + studentData.lastName,
+      };
+      const feeData = {
+        id: id,
+        feeDetail: feePaymentDataSnapShot.data(),
+        classes: classesData,
+      };
+      setFees(feeData);
+      setFeePayments(feePaymentDataWithStudentClasses);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
+  async function fetchUserData() {
+    try {
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDocSnapshot = await getDoc(userDocRef);
+      if (userDocSnapshot.exists()) {
+        const userData = userDocSnapshot.data();
+        setUserData(userData);
+        setLoading(false);
+      } else {
+        console.log("User not found");
+
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const checkAndFetchData = async () => {
+      setLoading(true);
+      const publishStatus = await checkPublish();
+      if (publishStatus) {
+        await fetchData();
+        await fetchUserData();
+      } else {
+        navigate("/parent/fee");
+      }
+      setLoading(false);
+    };
+
+    checkAndFetchData();
+  }, []);
+
+  const confirmPayment = async () => {
+    const result = await Swal.fire({
+      title: "Are you sure you want process to make the payment?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
+      navigate(`/parent/fee/payment/${id}`);
+    }
+  };
+
+  // const makePayment = async () => {
+  //   const stripe = await loadStripe(
+  //     "pk_test_51Ox8pMLX6vV4bYTHC6AR8YpbPIu5HWlfch5dauc8yvUUXwEz0gITpCUexMCGnKxMO29n2apcEvcfPCufOmtsk1fh00ujg1JGZi"
+  //   );
+  //   const paymentIntent = await fetch(
+  //     "http://localhost:4242/api/create-payment-intent",
+  //     {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({
+  //         items: [
+  //           {
+  //             id: feePayments.id,
+  //             classes: feePayments.classes.map((Class) => Class.Descriptions),
+  //           },
+  //         ],
+  //       }),
+  //     }
+  //   ).then((res) => res.json());
+  //   const result = await stripe.redirectToCheckout({
+  //     sessionId: paymentIntent.id,
+  //   });
+  //   if (result.error) {
+  //     console.error(result.error.message);
+  //   }
+  // };
 
   // Function to open the invoice modal
   const openInvoiceModal = () => {
@@ -170,14 +191,16 @@ function CardFeeView({ color }) {
           <div className="rounded-t mb-0 px-4 py-3 border-0">
             <div className="flex flex-wrap items-center">
               <div className="relative w-full px-4 max-w-full flex-grow flex-1">
-                <h3
-                  className={
-                    "font-semibold text-lg " +
-                    (color === "light" ? "text-blueGray-700" : "text-white")
-                  }
-                >
-                  Fee Payment
-                </h3>
+                <div className="flex items-center mb-4 font-bold text-xl">
+                  <Link
+                    to="/parent/fee"
+                    className="text-blue-500 hover:underline"
+                  >
+                    Fee payment
+                  </Link>
+                  <span className="mx-2">&nbsp;/&nbsp;</span>
+                  <span className="text-gray-500">Viewing payment</span>
+                </div>
                 <p className="text-sm text-gray-500">
                   View and manage your fee payments {feePayments.length}
                 </p>
@@ -185,16 +208,6 @@ function CardFeeView({ color }) {
             </div>
           </div>
           <div className="block w-full overflow-x-auto">
-            <div className="flex justify-end my-4 mx-8">
-              <input
-                type="text"
-                placeholder="Search by description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500"
-                style={{ width: "300px" }}
-              />
-            </div>
             <div className="grid grid-cols-2 gap-y-3 mt-2 m-0 px-8">
               <div className="flex justify-center mt-5 mb-3 font-bold text-xl col-span-2 underline">
                 Fee Details
@@ -298,19 +311,16 @@ function CardFeeView({ color }) {
                 </tr>
               </tbody>
             </table>
-            <div className="flex justify-center">
+            <div className="flex justify-center my-4">
               {!feePayments.paymentStatus ? (
-                <Link
-                  to={`/parent/fee/payment/${id}/`}
-                  className="text-white rounded-full font-bold py-2 px-4 hover:bg-blue-600"
-                  style={{
-                    backgroundColor: "#808080",
-                  }}
+                <button
+                  onClick={confirmPayment}
+                  className="text-white rounded-full font-bold py-2 px-4 bg-blue-500 hover:bg-blue-600"
                 >
                   Make a payment
-                </Link>
+                </button>
               ) : (
-                <div className="flex justify-center">
+                <div className="flex justify-center my-4">
                   <button
                     onClick={openInvoiceModal}
                     className="mb-3 rounded-lg font-bold py-2 px-4 bg-blue-500 text-white hover:bg-blue-600"
@@ -326,7 +336,6 @@ function CardFeeView({ color }) {
       {isInvoiceModalOpen && ( // Render InvoiceModal if isInvoiceModalOpen is true
         <InvoiceModal
           onClose={closeInvoiceModal}
-          students={students}
           users={userData}
           fees={fees}
         />
