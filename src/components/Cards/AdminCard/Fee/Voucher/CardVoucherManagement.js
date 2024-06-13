@@ -20,6 +20,7 @@ const DiscountType = Object.freeze({
 
 function CardVoucherManagement() {
   const [vouchers, setVouchers] = useState([]);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,13 +34,28 @@ function CardVoucherManagement() {
           ...doc.data(),
         }));
         setVouchers(vouchersData);
-        console.log("Vouchers", vouchersData);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching vouchers data:", error);
       }
     }
     fetchVouchers();
+  }, []);
+
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const usersSnapshot = await getDocs(collection(db, "users"));
+        const usersData = usersSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setUser(usersData);
+      } catch (error) {
+        console.error("Error fetching users data:", error);
+      }
+    }
+    fetchUsers();
   }, []);
 
   const handleDelete = async (id) => {
@@ -69,8 +85,9 @@ function CardVoucherManagement() {
     });
   };
 
-  const getFullName = (firstname, lastname) => {
-    return firstname && lastname ? `${firstname} ${lastname}` : "-";
+  const getFullNameById = (UserID) => {
+    const userObj = user.find((user) => user.id === UserID);
+    return userObj ? `${userObj.firstName} ${userObj.lastName}` : "-";
   };
 
   const data = vouchers.map((voucher) => {
@@ -97,26 +114,27 @@ function CardVoucherManagement() {
       voucher.isActive ? "Active" : "Inactive",
       visibility,
       voucher.userId || "-",
-      <>
+      getFullNameById(voucher.usedBy) || "-",
+      <div className="flex justify-between">
         <Link
           to={`/admin/fee/voucher/view/${voucher.id}`}
-          className="text-indigo-600 hover:text-indigo-900 mr-2"
+          className="text-white rounded-full font-bold py-2 px-4 bg-blue-500"
         >
           View
         </Link>
         <Link
           to={`/admin/fee/voucher/edit/${voucher.id}`}
-          className="text-yellow-600 hover:text-yellow-900 mr-2"
+          className="text-white rounded-full font-bold py-2 px-4 bg-green-500"
         >
           Edit
         </Link>
         <button
           onClick={() => handleDelete(voucher.id)}
-          className="text-red-600 hover:text-red-900"
+          className="text-white rounded-full font-bold py-2 px-4 bg-red-500"
         >
           Delete
         </button>
-      </>,
+      </div>,
     ];
   });
 
@@ -128,6 +146,7 @@ function CardVoucherManagement() {
     { name: "Status" },
     { name: "Visibility" },
     { name: "User ID" },
+    { name: "Used By" },
     {
       name: "Actions",
       options: {

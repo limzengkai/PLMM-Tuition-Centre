@@ -1,11 +1,11 @@
 .timetable-container {
-  position: relative;
-  overflow: auto;
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
   background-color: #f8f9fa;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  display: flex;
 }
 
 .time-column {
@@ -14,6 +14,7 @@
   text-align: center;
   position: relative;
   background-color: #e9ecef;
+  flex-shrink: 0;
 }
 
 .time-slot {
@@ -28,7 +29,7 @@
   height: 60px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   position: relative;
   box-sizing: border-box;
@@ -37,48 +38,29 @@
   border-radius: 8px 0 0 0;
 }
 
-.time-slot-title::before {
-  content: "";
-  position: absolute;
-  width: 70px;
-  height: 1px;
-  background-color: #ffffff;
-  top: 12px;
-  left: 5px;
-  transform: rotate(45deg);
-  transform-origin: left top;
-}
-
 .day-text {
-  position: absolute;
-  top: 5px;
-  left: 20px;
   font-size: 12px;
   font-weight: bold;
 }
 
 .time-text {
-  position: absolute;
-  bottom: 5px;
-  right: 20px;
   font-size: 12px;
   font-weight: bold;
 }
 
 .timetable {
   display: flex;
-  flex: 1;
   position: relative;
   overflow: hidden;
-  /* overflow-x: auto; */
 }
 
 .day-column {
   flex: 1;
   border: 1px solid #ddd;
   position: relative;
-  padding-top: 30px;
+  padding-top: 60px;  /* Adjusted padding to ensure day headers appear at the top */
   min-width: 120px;
+  background-color: #fff;
 }
 
 .day-header {
@@ -88,7 +70,7 @@
   background-color: #495057;
   border: 1px solid #dee2e6;
   position: absolute;
-  top: 0;
+  top: 0;  /* Ensures the header is at the top of the column */
   height: 60px;
   width: 100%;
   z-index: 1;

@@ -30,14 +30,24 @@ function CardAnnouncement() {
   };
 
   const handleAdd = async (newData) => {
-    const currentDate = new Date().toISOString().split("T")[0]; // Format date as YYYY-MM-DD
-    await addDoc(collection(db, "announcements"), { ...newData, Date: currentDate });
+    try {
+      const currentDate = new Date().toISOString().split("T")[0]; // Format date as YYYY-MM-DD
+      await addDoc(collection(db, "announcements"), { ...newData, Date: currentDate });
+      Swal.fire("Added!", "Your announcement has been added.", "success");
+    } catch (error) {
+      Swal.fire("Error!", "An error occurred while adding the announcement.", "error");
+    }
     fetchData();
   };
 
   const handleUpdate = async (updatedData) => {
-    const announcementDoc = doc(db, "announcements", updatedData.id);
-    await updateDoc(announcementDoc, updatedData);
+    try {
+      const announcementDoc = doc(db, "announcements", updatedData.id);
+      await updateDoc(announcementDoc, updatedData);
+      Swal.fire("Updated!", "Your announcement has been updated.", "success");
+    } catch (error) {
+      Swal.fire("Error!", "An error occurred while updating the announcement.", "error");
+    }
     fetchData();
   };
 
@@ -73,7 +83,7 @@ function CardAnnouncement() {
     Swal.fire({
       title: "Edit Announcement",
       html:
-        `<textarea id="swal-input" class="swal2-textarea" placeholder="Announcement" style="width:100%; height:100px;">${announcement.Announcement}</textarea>`,
+        `<textarea id="swal-input" class="swal2-textarea" placeholder="Announcement" style="width:80%; height:100px;">${announcement.Announcement}</textarea>`,
       focusConfirm: false,
       showCancelButton: true,
       cancelButtonText: "Cancel",

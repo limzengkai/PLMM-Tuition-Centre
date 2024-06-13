@@ -11,7 +11,9 @@ import {
   getDocs,
   doc,
   orderBy,
+  deleteDoc,
 } from "firebase/firestore";
+import Swal from "sweetalert2";
 import MUIDataTable from "mui-datatables";
 import { createTheme } from "@mui/material/styles";
 import { ThemeProvider } from "@emotion/react";
@@ -117,6 +119,54 @@ function CardAdminAttendanceView({ color }) {
     }
   };
   
+  const handleDeleteAttendance = async (attendanceId) => {
+    // Show confirmation dialog
+    Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to revert this!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        // Delete attendance record from the attendance collection
+        try {
+          const attendanceCollectionRef = collection(db, "Attendance");
+          const attendanceSubCollectionRef = collection(
+            attendanceCollectionRef,
+            attendanceId,
+            "studentAttendance"
+          );
+          // Delete all student attendance records
+          await deleteDoc(doc(attendanceCollectionRef, attendanceId));
+          // Delet SubCollection
+          await deleteDoc(doc(attendanceSubCollectionRef, attendanceId));
+          const updatedAttendanceRecords = attendanceRecords.filter(
+            (attendance) => attendance.id !== attendanceId
+          );
+          // Use Swal2
+          Swal.fire({
+            icon: "success",
+            title: "Attendance record deleted successfully",
+            showConfirmButton: false,
+            timer: 1500,
+          });
+
+          setAttendanceRecords(updatedAttendanceRecords);
+          setFilteredAttendance(updatedAttendanceRecords);
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "An error occurred. Please try again.",
+            showConfirmButton: false,
+            timer: 1500,
+          });
+        }
+      }
+    });
+  };
 
   const handleReset = () => {
     setStartDate("");
@@ -155,16 +205,22 @@ function CardAdminAttendanceView({ color }) {
     <div>
       <Link
         to={`/admin/attendance/class/${id}/view/${attendance.id}`}
-        className="mr-3 text-black rounded-full font-bold py-2 px-4 bg-blue-500"
+        className="mr-3 text-white rounded-full font-bold py-2 px-4 bg-blue-500"
       >
         View
       </Link>
       <Link
         to={`/admin/attendance/class/${id}/edit/${attendance.id}`}
-        className="text-black rounded-full font-bold py-2 px-4 bg-yellow-500"
+        className="text-white rounded-full font-bold py-2 px-4 bg-yellow-500"
       >
         Edit
       </Link>
+      <button
+        className="text-white rounded-full font-bold py-2 px-4 ml-3 bg-red-500"
+        onClick={() => handleDeleteAttendance(attendance.id)}
+      >
+        Delete
+      </button>
     </div>,
   ]);
 

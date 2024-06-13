@@ -131,6 +131,20 @@ function CardAddUser() {
       setError(error.message);
       Swal.fire('Error', error.message, 'error');
     }
+
+    // Reset form fields
+    // setEmail("");
+    // setFirstName("");
+    // setLastName("");
+    // setContactNumber("");
+    // setAddress("");
+    // setPostcode("");
+    // setCity("");
+    // setState("");
+    // setBirthDate(new Date(new Date().setFullYear(new Date().getFullYear() - 18)));
+    // setRole("admin");
+
+
     setLoading(false);
   };
 
@@ -188,8 +202,6 @@ function CardAddUser() {
       },
     ]); // Reset students array
     
-
-
     try {
       await setDoc(doc(db, "parent", parentId), { children: childrenIds });
     } catch (error) {

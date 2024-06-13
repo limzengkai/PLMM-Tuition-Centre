@@ -173,7 +173,7 @@ function CardAdminClasses({ classes, color }) {
       </Link>
       <button
         onClick={() => handleDelete(cls.id)}
-        className="text-white rounded-full font-bold py-2 px-4 bg-gray-500 ml-2"
+        className="text-white rounded-full font-bold py-2 px-4 bg-red-500 ml-2"
       >
         Delete
       </button>

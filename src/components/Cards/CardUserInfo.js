@@ -30,7 +30,7 @@ function CardUserInfo() {
     zip: "",
   });
   const [photo, setPhoto] = useState(null); // Change to null to represent no file selected
-  const [photoURL, setPhotoURL] = useState(null); // Add this state to store the photo URL]
+  const [photoURL, setPhotoURL] = useState(null); // Add this state to store the photo URL
 
   useEffect(() => {
     setLoading(true);
@@ -172,6 +172,16 @@ function CardUserInfo() {
   const uploadImage = async () => {
     try {
       if (photo) {
+        // Validate file type
+        const validImageTypes = ["image/jpeg", "image/png", "image/gif"];
+        if (!validImageTypes.includes(photo.type)) {
+          Swal.fire({
+            icon: "error",
+            text: "Unsupported file format. Please upload an image file (jpg, png, gif).",
+          });
+          return;
+        }
+
         const confirmUpload = await Swal.fire({
           title: "Upload Profile Picture",
           text: "Are you sure you want to upload this profile picture?",
@@ -244,6 +254,7 @@ function CardUserInfo() {
               <input
                 type="file"
                 id="fileInput"
+                accept="image/*"
                 onChange={handleImageChange}
                 className="hidden"
                 style={{ display: "none" }}

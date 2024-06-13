@@ -13,7 +13,7 @@ import {
   getDocs,
   getDoc,
 } from "firebase/firestore";
-import Timetable from "./Timetable";
+import Timetable from "./TeacherTimetable";
 
 function CardAdminClassesAdd() {
   const [CourseName, setCourseName] = useState("");
@@ -82,6 +82,7 @@ function CardAdminClassesAdd() {
                   schedules.push({
                     className,
                     location: scheduleData.location,
+                    academicLevel: classDoc.data().academicLevel,
                     day: scheduleData.day,
                     startTime: scheduleData.startTime,
                     endTime: scheduleData.endTime,
@@ -405,7 +406,7 @@ function CardAdminClassesAdd() {
               <label className="block col-span-full text-gray-700 text-sm font-bold mb-2">
                 Existing Schedule:
               </label>
-              <div className="timetable col-span-full ">
+              <div className=" col-span-full ">
                 {existingSchedules.length > 0 ? (
                   loadingschedule ? (
                     "Loading Teacher's schedule ..."

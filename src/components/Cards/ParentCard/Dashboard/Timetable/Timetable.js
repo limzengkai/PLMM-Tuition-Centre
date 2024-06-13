@@ -1,5 +1,4 @@
 import React from 'react';
-import ExportToPDF from './ExportToPDF';
 import TimetablePDF from './TimetablePDF';
 import './Timetable.css';
 

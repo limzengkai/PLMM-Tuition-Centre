@@ -77,6 +77,7 @@ function AddVoucherComponent() {
       const uniqueCode = await generateRandomCode();
       await addDoc(collection(db, "vouchers"), {
         ...formData,
+        usedBy: "",
         code: uniqueCode,
         expiryDate: new Date(formData.expiryDate),
       });

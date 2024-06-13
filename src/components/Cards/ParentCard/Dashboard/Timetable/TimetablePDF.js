@@ -8,7 +8,7 @@ import {
   Image,
   pdf,
 } from "@react-pdf/renderer";
-import logo from "../../../../../assets/img/PLMM Tuition Centre.jpg"
+import logo from "../../../../../assets/img/PLMM Tuition Centre.jpg"; // Adjust the import path accordingly
 
 const styles = StyleSheet.create({
   page: {
@@ -20,7 +20,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.5,
     flexDirection: "column",
     backgroundColor: "#f8f9fa",
-    orientation: "landscape",  // Set orientation to landscape
+    orientation: "landscape", // Set orientation to landscape
   },
   header: {
     padding: 10,
@@ -32,6 +32,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
+    textAlign: "center",
   },
   logo: {
     width: 80,
@@ -50,7 +51,7 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   timeSlot: {
-    height: 30,  // Reduce height to half
+    height: 30, // Reduce height to half
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#e9ecef",
   },
   timeSlotTitle: {
-    height: 30,  // Reduce height to half
+    height: 30, // Reduce height to half
     backgroundColor: "#343a40",
     color: "#ffffff",
     display: "flex",
@@ -131,17 +132,31 @@ const styles = StyleSheet.create({
 });
 
 const TimetablePDF = ({ childrenDetails }) => {
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const days = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
   const startHour = 8;
 
   const calculateEndHour = (classes) => {
     let latestEndTime = 18;
     classes.forEach((classData) => {
       classData.schedule.forEach((schedule) => {
-        const endTime = new Date(schedule.endTime.seconds * 1000 + schedule.endTime.nanoseconds / 1000000);
+        const endTime = new Date(
+          schedule.endTime.seconds * 1000 +
+            schedule.endTime.nanoseconds / 1000000
+        );
         const endHour = endTime.getHours();
         const endMinute = endTime.getMinutes();
-        if (endHour > latestEndTime || (endHour === latestEndTime && endMinute > 0)) {
+        if (
+          endHour > latestEndTime ||
+          (endHour === latestEndTime && endMinute > 0)
+        ) {
           latestEndTime = endMinute > 0 ? endHour + 1 : endHour;
         }
       });
@@ -163,16 +178,20 @@ const TimetablePDF = ({ childrenDetails }) => {
           {daySubjects.map((entry, index) => {
             const startTime = new Date(
               entry.startTime.seconds * 1000 +
-              entry.startTime.nanoseconds / 1000000
+                entry.startTime.nanoseconds / 1000000
             );
             const endTime = new Date(
-              entry.endTime.seconds * 1000 +
-              entry.endTime.nanoseconds / 1000000
+              entry.endTime.seconds * 1000 + entry.endTime.nanoseconds / 1000000
             );
 
-            const top = ((startTime.getHours() - 8) * 30) + startTime.getMinutes() / 2 + 30;  // Adjust top position
-            const height = (((endTime.getHours() - startTime.getHours()) * 60) +
-              (endTime.getMinutes() - startTime.getMinutes())) / 2;  // Adjust height
+            const top =
+              (startTime.getHours() - startHour) * 30 +
+              startTime.getMinutes() / 2 +
+              30; // Adjust top position
+            const height =
+              ((endTime.getHours() - startTime.getHours()) * 60 +
+                (endTime.getMinutes() - startTime.getMinutes())) /
+              2; // Adjust height
 
             return (
               <View
@@ -186,7 +205,8 @@ const TimetablePDF = ({ childrenDetails }) => {
                 <Text style={styles.entrySubject}>{entry.CourseName}</Text>
                 <Text style={styles.entryLocation}>{entry.location}</Text>
                 <Text style={styles.entryTime}>
-                  {convertTimestamp(entry.startTime)} - {convertTimestamp(entry.endTime)}
+                  {convertTimestamp(entry.startTime)} -{" "}
+                  {convertTimestamp(entry.endTime)}
                 </Text>
               </View>
             );
@@ -213,27 +233,38 @@ const TimetablePDF = ({ childrenDetails }) => {
             <Text style={styles.title}>PLMM Tuition Centre Timetable</Text>
             <Image src={logo} style={styles.logo} />
           </View>
-          {childrenDetails.map((child) => (
-            <View key={child.id}>
-              <Text style={styles.label}>
-                {child.childDetails.firstName} {child.childDetails.lastName}'s Timetable
-              </Text>
-              <View style={styles.flexContainer}>
-                <View>
-                  <View style={styles.timeSlotTitle}>
-                    <Text>Time</Text>
-                  </View>
-                  {Array.from({ length: 10 }, (_, i) => i + startHour).map((hour) => (
-                    <View key={hour} style={styles.timeSlot}>
-                      <Text>{`${hour.toString().padStart(2, "0")}:00`}</Text>
+          {childrenDetails.map((child) => {
+            const endHour = calculateEndHour(child.classes);
+            return (
+              <View key={child.id}>
+                <Text style={styles.label}>
+                  {child.childDetails.firstName} {child.childDetails.lastName}'s
+                  Timetable
+                </Text>
+                <View style={styles.flexContainer}>
+                  <View>
+                    <View style={styles.timeSlotTitle}>
+                      <Text>Time</Text>
                     </View>
-                  ))}
+                    {Array.from(
+                      { length: endHour - startHour + 1 },
+                      (_, i) => i + startHour
+                    ).map((hour) => (
+                      <View key={hour} style={styles.timeSlot}>
+                        <Text>{`${hour.toString().padStart(2, "0")}:00`}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.flexContainer}>
+                    {renderTimetable(child.classes)}
+                  </View>
                 </View>
-                <View style={styles.flexContainer}>{renderTimetable(child.classes)}</View>
               </View>
-            </View>
-          ))}
-          <Text style={styles.footer}>Thank you for using PLMM Tuition Centre</Text>
+            );
+          })}
+          <Text style={styles.footer}>
+            Thank you for using PLMM Tuition Centre
+          </Text>
         </Page>
       </Document>
     );
@@ -242,9 +273,11 @@ const TimetablePDF = ({ childrenDetails }) => {
       .toBlob()
       .then((blob) => {
         const pdfUrl = URL.createObjectURL(blob);
+        const firstName = childrenDetails[0].childDetails.firstName; // Assuming the first child's details are used for naming
+        const lastName = childrenDetails[0].childDetails.lastName; // Assuming the first child's details are used for naming
         const a = document.createElement("a");
         a.href = pdfUrl;
-        a.download = `timetable_${new Date().toLocaleDateString()}.pdf`;
+        a.download = `timetable_${firstName}_${lastName}_${new Date().toLocaleDateString()}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

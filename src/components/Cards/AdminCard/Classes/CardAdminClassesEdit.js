@@ -19,7 +19,7 @@ import {
   where,
   documentId,
 } from "firebase/firestore";
-import Timetable from "./Timetable";
+import Timetable from "./TeacherTimetable";
 
 function CardAdminClassesEdit() {
   const { id } = useParams();
@@ -69,6 +69,7 @@ function CardAdminClassesEdit() {
                 schedules.push({
                   className,
                   location: scheduleData.location,
+                  academicLevel: classDoc.data().academicLevel,
                   day: scheduleData.day,
                   startTime: scheduleData.startTime,
                   endTime: scheduleData.endTime,
@@ -278,8 +279,8 @@ function CardAdminClassesEdit() {
               text: "Class updated successfully!",
             });
           })
-          .catch((error) => {
-            console.error("Error updating class: ", error);
+          .catch(() => {
+            setUpdate(false);
             Swal.fire({
               icon: "error",
               title: "Error!",

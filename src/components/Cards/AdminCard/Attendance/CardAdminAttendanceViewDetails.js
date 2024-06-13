@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../../../../config/context/AuthContext";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import PropTypes from "prop-types";
 import { db } from "../../../../config/firebase";
 import CardLoading from "../../CardLoading";
-import { collection, getDocs, getDoc, doc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, deleteDoc } from "firebase/firestore";
 import MUIDataTable from "mui-datatables";
 import { createTheme } from "@mui/material/styles";
 import { ThemeProvider } from "@emotion/react";
+import Swal from "sweetalert2";
 
 function CardAdminViewAttendanceDetails({ color }) {
   const { id, attdid } = useParams();
@@ -15,6 +16,7 @@ function CardAdminViewAttendanceDetails({ color }) {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [classData, setClassData] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
@@ -111,6 +113,51 @@ function CardAdminViewAttendanceDetails({ color }) {
       return `${hourFormat}:${minuteFormat} ${amOrPm}`;
     }
     return "Unknown Time";
+  };
+
+  const handleDeleteAttendance = async (attendanceId) => {
+    // Show confirmation dialog
+    Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to revert this!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        // Delete attendance record from the attendance collection
+        try {
+          const attendanceCollectionRef = collection(db, "Attendance");
+          const attendanceSubCollectionRef = collection(
+            attendanceCollectionRef,
+            attendanceId,
+            "studentAttendance"
+          );
+          // Delete all student attendance records
+          await deleteDoc(doc(attendanceCollectionRef, attendanceId));
+          // Delet SubCollection
+          await deleteDoc(doc(attendanceSubCollectionRef, attendanceId));
+          // Use Swal2
+          Swal.fire({
+            icon: "success",
+            title: "Attendance record deleted successfully",
+            showConfirmButton: false,
+            timer: 1500,
+          });
+          navigate(`/admin/attendance/class/${id}`);
+
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "An error occurred. Please try again.",
+            showConfirmButton: false,
+            timer: 1500,
+          });
+        }
+      }
+    });
   };
 
   const columns = [
@@ -275,6 +322,23 @@ function CardAdminViewAttendanceDetails({ color }) {
                 }}
               />
             </ThemeProvider>
+          </div>
+          {/* // Add Edit navigation and Delete button */}
+          <div className="flex justify-center mt-4">
+            <Link
+              to={`/admin/attendance/class/${id}/edit/${attdid}`}
+              className="rounded-lg font-bold py-2 px-4 bg-blue-500 text-white hover:bg-blue-600"
+            >
+              Edit
+            </Link>
+            <button
+              className="rounded-lg font-bold py-2 px-4 bg-red-500 text-white hover:bg-red-600 ml-2"
+              onClick={() => {
+                handleDeleteAttendance(attdid);
+              }}
+            >
+              Delete
+            </button>
           </div>
         </div>
       )}
