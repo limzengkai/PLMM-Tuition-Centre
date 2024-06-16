@@ -52,7 +52,7 @@ function Registration() {
         const coursesQuery = query(collection(db, "class"));
         const coursesSnapshot = await getDocs(coursesQuery);
         const coursesData = coursesSnapshot.docs.map((doc) => ({
-          label: `${doc.data().academicLevel}_${doc.data().CourseName}`,
+          label: `${doc.data().academicLevel}_${doc.data().CourseName+ " (RM" + doc.data().fee + ")"}`,
           value: doc.id,
         }));
         setCourses(coursesData);

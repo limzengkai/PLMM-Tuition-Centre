@@ -32,6 +32,7 @@ import CardAdminAttendanceEdit from "../components/Cards/AdminCard/Attendance/Ca
 import CardAdminAttendanceViewDetails from "../components/Cards/AdminCard/Attendance/CardAdminAttendanceViewDetails";
 import InfoTeacher from "../components/Cards/AdminCard/Info/InfoTeacher.js";
 import Voucher from "../views/admin/Voucher.js";
+import CardAnnouncement from "../components/Cards/AdminCard/Info/CardAnnoucement.js";
 
 export default function Admin() {
   const location = useLocation();
@@ -105,6 +106,7 @@ export default function Admin() {
             <Route path="users/add" element={<UsersManagementAction />} />
             <Route path="info" element={<Info />} />
             <Route path="info/teachers" element={<InfoTeacher />} />
+            <Route path="info/annoucement" element={<CardAnnouncement />} />
 
             {/* Fee Management Page */}
             <Route path="fee" element={<Fee />} />

@@ -36,6 +36,7 @@ function CardFee({ color }) {
         const fee = [];
         await Promise.all(
           studentData.map(async (student) => {
+            console.log(student.id);
             const feePaymentQuery = query(
               collection(db, "fees"),
               where("StudentID", "==", student.id),
@@ -43,6 +44,8 @@ function CardFee({ color }) {
               orderBy("paymentStatus", "asc"),
               orderBy("DueDate", "desc")
             );
+
+            console.log(await getDocs(feePaymentQuery)); 
 
             const feeData = [];
             const feePaymentSnapshot = await getDocs(feePaymentQuery);
@@ -86,6 +89,7 @@ function CardFee({ color }) {
           // if paymentStatus is the same, sort by DueDate in descending order
           return b.DueDate.seconds - a.DueDate.seconds;
         });
+        console.log(fee);
         setFeePayments(fee);
         setLoading(false);
       } catch (error) {

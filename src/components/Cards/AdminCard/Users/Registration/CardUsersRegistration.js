@@ -1,18 +1,13 @@
 import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
 import React, { useState, useEffect } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { db } from "../../../../../config/firebase";
 import CardLoading from "../../../CardLoading";
 import RegistrationheaderNav from "../../Registration/Registrationheadernav";
 
 function CardUsersRegistration() {
-  // State to manage the selected function (Management or Registration)
-  const [selectedFunction, setSelectedFunction] = useState("management");
-  // State to manage the search term
-  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [registration, setRegistration] = useState([]);
-  const location = useLocation();
 
   useEffect(() => {
     const fetchRegistration = async () => {
@@ -39,21 +34,11 @@ function CardUsersRegistration() {
         // Log the fetched registrations to the console
         console.log(registrations);
       } catch (error) {
-        // Handle any errors that occur during data fetching
         console.error("Error fetching registrations:", error.message);
-        // Handle error, show a message, etc.
       }
     };
     fetchRegistration();
   }, []);
-
-  // Update selected function based on URL path
-  useEffect(() => {
-    const pathname = location.pathname;
-    if (pathname === "/admin/users" || pathname.startsWith("/admin/users/")) {
-      setSelectedFunction("management");
-    }
-  }, [location.pathname]);
 
   return (
     <>
@@ -62,28 +47,6 @@ function CardUsersRegistration() {
       ) : (
         <div className="container mx-auto px-4 py-8">
           <h2 className="text-xl font-bold mb-4">User Registration</h2>
-          <div className="lg:flex justify-between mb-4 sm:block">
-            {/* Search Bar */}
-            <div className="flex items-center">
-              <label
-                htmlFor="search"
-                className="text-sm font-medium text-gray-700 mr-2"
-              >
-                Search by:
-              </label>
-              <input
-                type="text"
-                id="search"
-                name="search"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 block w-64"
-                placeholder={
-                  selectedFunction === "management" ? "Name" : "userID"
-                }
-              />
-            </div>
-          </div>
           <RegistrationheaderNav />
 
           {/* Users Table */}

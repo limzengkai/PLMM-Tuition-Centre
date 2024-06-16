@@ -71,15 +71,25 @@ function AddVoucherComponent() {
       return;
     }
 
+    if (!formData.isActive) {
+      setError("Voucher is inactive. Cannot add inactive voucher.");
+      return;
+    }
+
     setError(""); // Clear any previous errors
 
     try {
       const uniqueCode = await generateRandomCode();
+
+      // Adjust expiry date to 00:00:00
+      const expiryDate = new Date(formData.expiryDate);
+      expiryDate.setHours(0, 0, 0, 0);
+
       await addDoc(collection(db, "vouchers"), {
         ...formData,
         usedBy: "",
         code: uniqueCode,
-        expiryDate: new Date(formData.expiryDate),
+        expiryDate: expiryDate,
       });
       Swal.fire({
         title: "Success",
@@ -166,6 +176,7 @@ function AddVoucherComponent() {
             required
           />
         </div>
+
         <div className="mb-4">
           <label className="block mb-2">Status:</label>
           <input

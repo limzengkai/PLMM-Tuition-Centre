@@ -13,24 +13,21 @@ export default function Dashboard() {
   return (
     <>
       <div className="flex flex-wrap">
-        <div className="w-full xl:w-6/12">
+        <div className="w-full xl:w-full">
           <div className="w-full mb-12 px-4">
             <CardLineChart />
           </div>
-          {/* <div className="w-full mb-12 px-4">
+          <div className="w-full mb-12 px-4">
             <CardBarChart />
           </div>
-          <div className="w-full mb-12 px-4">
-            <CardUnpaidList />
-          </div> */}
           {/* <div className="w-full mb-12 px-4">
+            <CardUnpaidList />
+          </div>
+          <div className="w-full mb-12 px-4">
             <CardPaidList />
           </div> */}
         </div>
         <div className="w-full xl:w-6/12">
-          <div className="w-full px-4">
-            <CardAnnouncement />
-          </div>
         </div>
       </div>
     </>

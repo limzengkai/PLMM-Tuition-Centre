@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   updateDoc,
@@ -78,20 +79,29 @@ function PaymentPage() {
       } else if (discountType === "numeric") {
         newTotal = subtotal - discount;
       }
+      if (newTotal < 0) {
+        newTotal = 0;
+      }
       setTotal(newTotal);
     }
   }, [discount, subtotal, discountType]);
 
   const DiscountData = async () => {
     try {
+      // Fetch public discount data
       const publicDiscountData = await getDocs(
-        query(collection(db, "vouchers"), where("visibility", "==", "public"))
+        query(
+          collection(db, "vouchers"),
+          where("visibility", "==", "public"),
+          where("isActive", "==", true)
+        )
       );
       const publicDiscountDataArray = publicDiscountData.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
 
+      // Fetch private discount data
       const privateDiscountData = await getDocs(
         query(
           collection(db, "vouchers"),
@@ -117,34 +127,20 @@ function PaymentPage() {
   };
 
   useEffect(() => {
-    console.log(currentUser.currentUser.uid);
-    console.log("Discount Data : ", discountData);
     DiscountData();
   }, []);
 
   const handleDiscountSubmit = async () => {
-    console.log("asdasdasd");
     const appliedDiscount = discountData.find(
       (discount) => discount.code === discountCode
     );
-    console.log(appliedDiscount);
     if (appliedDiscount) {
       // Find discount ID
-      console.log("asd", appliedDiscount.id);
       const discountId = appliedDiscount.id;
       setDiscountID(discountId);
       setDiscount(appliedDiscount.discountValue);
       setDiscountType(appliedDiscount.discountType);
       setDiscountStatusMssg("Discount code applied successfully!");
-
-      try {
-        // Update the discount to set isActive to false
-        await updateDoc(doc(db, "vouchers", discountId), {
-          isActive: false,
-        });
-      } catch (error) {
-        console.error("Error updating discount status:", error);
-      }
     } else {
       setDiscount(0);
       setDiscountID("");
@@ -232,38 +228,63 @@ function PaymentPage() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          if (discountID) {
-            await updateDoc(doc(db, "fees", id), {
-              paymentStatus: true,
-              paidAmount: total,
-              paymentDate: new Date(),
-              isDiscount: true,
-              DiscountID: discountID,
-            });
+          const feeRef = doc(db, "fees", id);
 
-            await updateDoc(doc(db, "vouchers", discountID), {
-              isActive: false,
-            });
+          if (discountID) {
+            const discountRef = doc(db, "vouchers", discountID);
+            const discountDoc = await getDoc(discountRef);
+
+            if (discountDoc.exists() && discountDoc.data().isActive) {
+              await updateDoc(feeRef, {
+                paymentStatus: true,
+                paidAmount: total,
+                paymentDate: new Date(),
+                isDiscount: true,
+                DiscountID: discountID,
+                usedBy: currentUser.currentUser.uid,
+              });
+
+              await updateDoc(discountRef, {
+                isActive: false,
+              });
+
+              await Swal.fire({
+                icon: "success",
+                title: "Payment Successful",
+                text: "Thank you for your payment!",
+                confirmButtonText: "Back to Fee Payment Page",
+              }).then((result) => {
+                if (result.isConfirmed) {
+                  navigate("/parent/fee");
+                }
+              });
+            } else {
+              Swal.fire({
+                icon: "error",
+                title: "Invalid Discount",
+                text: "The discount code has already been used or is not valid.",
+              });
+            }
           } else {
-            await updateDoc(doc(db, "fees", id), {
+            await updateDoc(feeRef, {
               paymentStatus: true,
               paidAmount: total,
               paymentDate: new Date(),
               isDiscount: false,
               DiscountID: null,
             });
-          }
 
-          await Swal.fire({
-            icon: "success",
-            title: "Payment Successful",
-            text: "Thank you for your payment!",
-            confirmButtonText: "Back to Fee Payment Page",
-          }).then((result) => {
-            if (result.isConfirmed) {
-              navigate("/parent/fee");
-            }
-          });
+            await Swal.fire({
+              icon: "success",
+              title: "Payment Successful",
+              text: "Thank you for your payment!",
+              confirmButtonText: "Back to Fee Payment Page",
+            }).then((result) => {
+              if (result.isConfirmed) {
+                navigate("/parent/fee");
+              }
+            });
+          }
         } catch (error) {
           console.error("Error submitting payment:", error);
           Swal.fire({

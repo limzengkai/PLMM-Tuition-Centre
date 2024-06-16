@@ -249,13 +249,25 @@ export default function CardTable({ color }) {
               <Link
                 to="/admin/info/teachers"
                 className={
-                  "rounded-r-lg font-bold py-2 px-4 m-0" +
+                  "font-bold py-2 px-4 m-0" +
                   (location.pathname.includes("/admin/info/teachers")
                     ? "  bg-blue-500 text-white hover:text-lightBlue-100"
                     : " text-black  hover:bg-blue-500 hover:text-white")
                 }
               >
                 Teacher Home Info
+              </Link>
+
+              <Link
+                to="/admin/info/annoucement"
+                className={
+                  "rounded-r-lg font-bold py-2 px-4 m-0" +
+                  (location.pathname.includes("/admin/info/annoucement")
+                    ? "  bg-blue-500 text-white hover:text-lightBlue-100"
+                    : " text-black  hover:bg-blue-500 hover:text-white")
+                }
+              >
+                Annoucement Info
               </Link>
             </div>
             <div></div>

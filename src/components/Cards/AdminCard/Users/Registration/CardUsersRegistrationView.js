@@ -8,6 +8,7 @@ import {
   query,
   updateDoc,
   setDoc,
+  addDoc,
 } from "firebase/firestore";
 import { db, functions } from "../../../../../config/firebase";
 import CardLoading from "../../../CardLoading";
@@ -16,7 +17,6 @@ import { ToastContainer, toast } from "react-toastify";
 import { httpsCallable } from "firebase/functions";
 
 function CardUsersRegistration() {
-  const [selectedFunction, setSelectedFunction] = useState("management");
   const [registration, setRegistration] = useState([]);
   const [course, setCourse] = useState([]);
   const [error, setError] = useState();
@@ -24,7 +24,6 @@ function CardUsersRegistration() {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,6 +47,19 @@ function CardUsersRegistration() {
           id: doc.id,
           ...doc.data(),
         }));
+
+        // Fetch Schedule Subcollection for each course
+        for (const course of courses) {
+          const scheduleQuery = query(
+            collection(db, "class", course.id, "Schedule")
+          );
+          const scheduleDocs = await getDocs(scheduleQuery);
+          const schedules = scheduleDocs.docs.map((doc) => ({
+            ...doc.data(),
+          }));
+          course.schedule = schedules;
+        }
+
         setCourse(courses);
         setLoading(false);
       } catch (error) {
@@ -58,12 +70,75 @@ function CardUsersRegistration() {
     fetchData();
   }, [id]);
 
-  useEffect(() => {
-    const pathname = location.pathname;
-    if (pathname === "/admin/users" || pathname.startsWith("/admin/users/")) {
-      setSelectedFunction("management");
-    }
-  }, [location.pathname]);
+  const calculateFee = (schedule) => {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    const dayMapping = {
+      Sunday: 0,
+      Monday: 1,
+      Tuesday: 2,
+      Wednesday: 3,
+      Thursday: 4,
+      Friday: 5,
+      Saturday: 6,
+    };
+
+    // Function to calculate the number of specific days in a month
+    const countSpecificDaysInMonth = (year, month, day) => {
+      let count = 0;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(year, month, i);
+        if (date.getDay() === day) {
+          count++;
+        }
+      }
+      return count;
+    };
+
+    // Function to calculate remaining specific days in the month
+    const countRemainingSpecificDaysInMonth = (
+      year,
+      month,
+      day,
+      currentDay
+    ) => {
+      let count = 0;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let i = currentDay; i <= daysInMonth; i++) {
+        const date = new Date(year, month, i);
+        if (date.getDay() === day) {
+          count++;
+        }
+      }
+      return count;
+    };
+
+    let totalClasses = 0;
+    let remainingClasses = 0;
+
+    schedule.forEach((classSchedule) => {
+      const dayOfWeek = dayMapping[classSchedule.day]; // Convert day name to day number
+      totalClasses += countSpecificDaysInMonth(
+        currentYear,
+        currentMonth,
+        dayOfWeek
+      );
+      remainingClasses += countRemainingSpecificDaysInMonth(
+        currentYear,
+        currentMonth,
+        dayOfWeek,
+        currentDate.getDate()
+      );
+    });
+
+    return {
+      totalClasses,
+      remainingClasses,
+    };
+  };
 
   const getDate = (timestamp) => {
     if (timestamp && timestamp.toDate) {
@@ -83,6 +158,13 @@ function CardUsersRegistration() {
       : "Course not found";
   };
 
+  const getCourseName = (id) => {
+    const foundCourse = course.find((c) => c.id === id);
+    return foundCourse
+      ? `${foundCourse.CourseName}`
+      : "Course not found";
+  };
+
   const handleApproved = async () => {
     const confirmResult = await Swal.fire({
       title: "Are you sure?",
@@ -94,11 +176,14 @@ function CardUsersRegistration() {
       confirmButtonText: "Yes, approve it!",
       cancelButtonText: "Cancel",
     });
-  
+
     if (confirmResult.isConfirmed) {
       setLoading(true);
       try {
-        const processRegistrationFunction = httpsCallable(functions, 'processRegistration');
+        const processRegistrationFunction = httpsCallable(
+          functions,
+          "processRegistration"
+        );
         const result = await processRegistrationFunction({ registration }); // Call the Cloud Function directly without using .call()
 
         if (result.data.error) {
@@ -106,39 +191,98 @@ function CardUsersRegistration() {
           throw new Error(result.data.error);
         }
 
-        const user = result.data.userCredential;
-        saveStudentInformation(user);
-        
+        const user = result.data.userCredential; // Ensure user ID is obtained correctly
+        console.log("User created:", user);
+
+        // Save student information
+        await saveStudentInformation(user);
+
+        // Update registration status
         await updateDoc(doc(db, "registration", id), {
           status: false,
           result: true,
-          rejectReason: null 
+          rejectReason: null,
         });
 
+        // Create initial payment for each student
+        for (const student of registration.student) {
+          const paymentData = {
+            DiscountID: null,
+            DueDate: new Date(new Date().setDate(new Date().getDate() + 10)),
+            StudentID: `student_${user}_${registration.student.indexOf(
+              student
+            )}`,
+            isDiscount: false,
+            paidAmount: 0,
+            paymentDate: null,
+            paymentStatus: false,
+            publish: true,
+          };
+
+          const paymentRef = await addDoc(collection(db, "fees"), paymentData);
+
+          // Add payment for each course in Classes collection
+          for (const course of student.registeredCourses) {
+            const classDocRef = doc(db, "class", course);
+            const classDoc = await getDoc(classDocRef);
+
+            if (classDoc.exists()) {
+              const classFee = classDoc.data().fee;
+              const scheduleQuery = query(
+                collection(db, "class", course, "Schedule")
+              );
+              const scheduleDocs = await getDocs(scheduleQuery);
+              const schedules = scheduleDocs.docs.map((doc) => doc.data());
+
+              for (const schedule of schedules) {
+                const { totalClasses, remainingClasses } = calculateFee([
+                  schedule,
+                ]);
+                const feePerClass = classFee / totalClasses;
+                const totalFee = feePerClass * remainingClasses;
+
+                await addDoc(collection(paymentRef, "Classes"), {
+                  ClassId: course,
+                  Descriptions: [`Fee for ${remainingClasses} classes left for ${getCourseName(course)}`],
+                  FeeAmounts: [totalFee],
+                  Quantity: [1],
+                });
+              }
+            } else {
+              console.error(`Class document not found for course: ${course}`);
+            }
+          }
+
+          await addDoc(collection(paymentRef, "Classes"), {
+            ClassId: null,
+            Description: [`Registration Fee for ${student.firstName} ${student.lastName}`],
+            FeeAmounts: [30],
+            Quantity: [1],
+          });
+        }
+
         Swal.fire({
-          icon: 'success',
-          title: 'Success',
+          icon: "success",
+          title: "Success",
           text: "The user is registered successfully. The default password has been sent to the user's email.",
         }).then((result) => {
           if (result.isConfirmed) {
             navigate("/admin/users/registration");
           }
         });
-  
+
         setLoading(false);
       } catch (error) {
-        // If there's an error during registration or from the Cloud Function, display it using Swal
         Swal.fire({
-          icon: 'error',
-          title: 'Error',
+          icon: "error",
+          title: "Error",
           text: error.message,
         });
-        console.log("Error approving registration:", error.message);
         setLoading(false);
       }
     }
   };
-  
+
   const saveStudentInformation = async (parentId) => {
     const childrenIds = [];
 
@@ -147,38 +291,42 @@ function CardUsersRegistration() {
         const student = registration.student[index];
         const studentDocId = `student_${parentId}_${index}`;
         const studentDocRef = doc(db, "students", studentDocId);
-  
+
         // Map selected course objects to their IDs
         const courseIds = student.registeredCourses.map((course) => course);
-  
+
         const updatedStudent = {
           ...student,
           registeredCourses: courseIds,
           parentId: parentId,
         };
-  
+
         // Save student information
         await setDoc(studentDocRef, updatedStudent);
         childrenIds.push(studentDocId);
         toast.success(`Student ${index + 1} information saved successfully.`);
-  
+
         // Update class collection with new student IDs
         for (const courseId of courseIds) {
           const classDocRef = doc(db, "class", courseId);
           const classDoc = await getDoc(classDocRef);
-  
+
           if (classDoc.exists()) {
             const classData = classDoc.data();
-            const updatedStudentIds = classData.studentID ? [...classData.studentID, studentDocId] : [studentDocId];
+            const updatedStudentIds = classData.studentID
+              ? [...classData.studentID, studentDocId]
+              : [studentDocId];
             await updateDoc(classDocRef, { studentID: updatedStudentIds });
-            toast.success(`Student ID updated successfully in class collection for course: ${courseId}`);
+            toast.success(
+              `Student ID updated successfully in class collection for course: ${courseId}`
+            );
           } else {
             console.error(`Class document not found for course: ${courseId}`);
             toast.error(`Class document not found for course: ${courseId}`);
           }
         }
       }
-  
+
       // Save children IDs for parent
       await setDoc(doc(db, "parent", parentId), { children: childrenIds });
     } catch (error) {
@@ -186,7 +334,6 @@ function CardUsersRegistration() {
       toast.error(`Error saving student information: ${error.message}`);
     }
   };
-  
 
   const handleRejected = async () => {
     // Display a confirmation dialog using SweetAlert
@@ -199,22 +346,22 @@ function CardUsersRegistration() {
       cancelButtonColor: "#d33",
       confirmButtonText: "Yes, reject it!",
       cancelButtonText: "Cancel",
-      input: 'text', // Add input field for reason
-      inputPlaceholder: 'Enter reason for rejection', // Placeholder for the input field
+      input: "text", // Add input field for reason
+      inputPlaceholder: "Enter reason for rejection", // Placeholder for the input field
       inputValidator: (value) => {
         if (!value) {
-          return 'You need to enter a reason for rejection'; // Validate that reason is entered
+          return "You need to enter a reason for rejection"; // Validate that reason is entered
         }
-      }
+      },
     });
-  
+
     // If the user confirms the rejection and entered a reason
     if (isConfirmed && rejectReason) {
       try {
         await updateDoc(doc(db, "registration", id), {
           status: false,
           result: false,
-          rejectReason: rejectReason // Save rejection reason in database
+          rejectReason: rejectReason, // Save rejection reason in database
         });
         navigate("/admin/users/registration"); // Navigate to the specified route
         // Display a success message
@@ -229,7 +376,7 @@ function CardUsersRegistration() {
       }
     }
   };
-  
+
   return (
     <>
       {loading ? (
@@ -256,7 +403,6 @@ function CardUsersRegistration() {
                     ? " bg-blue-500 text-white hover:text-lightBlue-100"
                     : " text-black  hover:bg-blue-500 hover:text-white")
                 }
-                onClick={() => setSelectedFunction("management")}
               >
                 Management
               </Link>
@@ -269,7 +415,6 @@ function CardUsersRegistration() {
                     ? "  bg-blue-500 text-white hover:text-lightBlue-100"
                     : " text-black  hover:Fbg-blue-500 hover:text-white")
                 }
-                onClick={() => setSelectedFunction("registration")}
               >
                 Registration
               </Link>

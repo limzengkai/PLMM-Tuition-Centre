@@ -203,7 +203,6 @@ function CardClassesOffered({ color }) {
       });
 
       if (isConfirmed) {
-        console.log(calculateFee(schedule));
         const totalClasses = calculateFee(schedule).totalClasses;
         const remainingClasses = calculateFee(schedule).remainingClasses;
         const totalFee = (fee / totalClasses) * remainingClasses;
