@@ -6,7 +6,7 @@ if (admin.apps.length === 0) {
 }
 
 exports.feeGeneration = functions.pubsub
-  .schedule("00 00 25 * *") // Run the function at 00:00 on the 25th of every month
+  .schedule("00 00 20 * *") // Run the function at 00:00 on the 20th of every month
   .timeZone("Asia/Kuala_Lumpur") // Set timezone to Kuala Lumpur, Malaysia
   .onRun(async (context) => {
     try {
@@ -40,6 +40,7 @@ exports.feeGeneration = functions.pubsub
       // Fetch admin emails and send notification
       const adminSnapshot = await admin.firestore().collection("users").where("role", "==", "admin").get();
       const adminEmails = adminSnapshot.docs.map((doc) => doc.data().email);
+      const adminIds = adminSnapshot.docs.map((doc) => doc.id); // Collect admin IDs
 
       const emailBody = `
       <!DOCTYPE html>
@@ -58,15 +59,29 @@ exports.feeGeneration = functions.pubsub
       </html>
       `;
 
-      for (const adminEmail of adminEmails) {
-        await admin.firestore().collection("mail").add({
+      const emailPromises = adminEmails.map((adminEmail) =>
+        admin.firestore().collection("mail").add({
           to: adminEmail,
           message: {
             subject: "Fee Generation Notification",
             html: emailBody,
           },
-        });
-      }
+        })
+      );
+
+      // Add notifications to admin users
+      const notificationPromises = adminIds.map((adminId) =>
+        admin.firestore().collection("notifications").add({
+          title: "Fee Generation Notification",
+          message: "Fees for the next month have been generated for all students.",
+          isRead: false,
+          userId: adminId,
+          AddTime: admin.firestore.FieldValue.serverTimestamp(),
+        })
+      );
+
+      // Wait for all emails and notifications to be sent
+      await Promise.all([...emailPromises, ...notificationPromises]);
 
       console.log("Fees generated and notification emails sent.");
       return null;
@@ -126,3 +141,5 @@ async function generateFeesForStudent(studentId, courseId, nextMonthStartTimesta
     throw error;
   }
 }
+
+module.exports = exports;

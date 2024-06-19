@@ -70,6 +70,8 @@ function CardFeeView({ color }) {
         feeDetail: feePaymentDataSnapShot.data(),
         classes: classesData,
       };
+      console.log(feeData);
+      console.log( feePaymentDataWithStudentClasses);
       setFees(feeData);
       setFeePayments(feePaymentDataWithStudentClasses);
       setLoading(false);
@@ -252,7 +254,7 @@ function CardFeeView({ color }) {
               </thead>
               <tbody>
                 {feePayments.classes?.map((Classfee) => (
-                  <tr key={Classfee.ClassId}>
+                  <tr key={Classfee.id}>
                     {Classfee.Descriptions?.map((description, index) => (
                       <td
                         key={index}

@@ -3,7 +3,7 @@ import { db } from "../../config/firebase";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../config/context/AuthContext";
 import Swal from "sweetalert2";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import ReCAPTCHA from "react-google-recaptcha";
 
 const RECAPTCHA_SITE_KEY = process.env.REACT_APP_GOOGLE_RECAPTCHA_SITE_KEY;
@@ -35,8 +35,9 @@ export default function Login() {
 
       if (user) {
         const userRoleDoc = await getDoc(doc(db, "users", user.uid));
-
+        
         if (userRoleDoc.exists()) {
+          // updateDoc(userRoleDoc.ref, { loginattempt: 0});
           const userData = userRoleDoc.data();
           redirectBasedOnRole(userData.role);
           return;

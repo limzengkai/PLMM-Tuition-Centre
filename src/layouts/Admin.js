@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 
 // components
+import UsersNavbar from "../components/Navbars/UsersNavbar.js";
 import AdminNavbar from "../components/Navbars/AdminNavbar.js";
 import AdminSidebar from "../components/Sidebar/AdminSidebar.js";
 import HeaderStats from "../components/Headers/Admin/HeaderStats.js";
@@ -33,6 +34,7 @@ import CardAdminAttendanceViewDetails from "../components/Cards/AdminCard/Attend
 import InfoTeacher from "../components/Cards/AdminCard/Info/InfoTeacher.js";
 import Voucher from "../views/admin/Voucher.js";
 import CardAnnouncement from "../components/Cards/AdminCard/Info/CardAnnoucement.js";
+import CardUsersRegistrationViewDetails from "../components/Cards/AdminCard/Users/Registration/CardUsersRegistrationViewDetails.js";
 
 export default function Admin() {
   const location = useLocation();
@@ -85,7 +87,7 @@ export default function Admin() {
     <>
       <AdminSidebar />
       <div className="relative md:ml-64 bg-blueGray-100">
-        <AdminNavbar title={pageTitle} />
+        <UsersNavbar title={pageTitle} />
         {/* Header */}
         {headerComponent}
         <div className="px-4 md:px-10 mx-auto w-full -m-24">
@@ -94,11 +96,13 @@ export default function Admin() {
             <Route path="profile" element={<Profile />} />
             <Route path="change-password" element={<ChangePassword />} />
             <Route path="users" element={<Users />} />
+            <Route path="notifications" element={<Users />} />
             <Route path="users/registration/" element={<Users />} />
             <Route
               path="users/registration/:id"
               element={<UsersRegistrationView />}
             />
+            <Route path="users/registration/view/:id" element={<UsersRegistrationView />}></Route>
             <Route path="users/registration/rejected" element={<Users />} />
             <Route path="users/registration/approved" element={<Users />} />
             <Route path="users/view/:id" element={<UsersManagementAction />} />

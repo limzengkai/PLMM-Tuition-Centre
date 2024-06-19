@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import TeacherNavbar from "../components/Navbars/TeacherNavbar.js";
+import UsersNavbar from "../components/Navbars/UsersNavbar.js";
 import Sidebar from "../components/Sidebar/TeacherSidebar.js";
 import HeaderFee from "../components/Headers/HeaderFee.js";
 import HeaderAttendance from "../components/Headers/HeaderAttendance.js";
@@ -77,7 +77,7 @@ export default function Teacher() {
       <RequireTeacher>
         <Sidebar />
         <div className="relative md:ml-64 bg-blueGray-100">
-          <TeacherNavbar title={pageTitle} />
+          <UsersNavbar title={pageTitle} />
           {headerComponent}
           <div className="px-4 md:px-10 mx-auto w-full -m-24">
             <Routes>
@@ -85,6 +85,7 @@ export default function Teacher() {
               <Route path="profile" element={<Profile />} />
               <Route path="change-password" element={<ChangePassword />} />
               <Route path="attendance" element={<AttendanceView />} />
+              <Route path="notifications" element={<AttendanceView />} />
               <Route
                 path="attendance/class/:id"
                 element={<CardViewClassAttendance />}

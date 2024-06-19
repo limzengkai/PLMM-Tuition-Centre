@@ -105,7 +105,7 @@ function CardUsersRegistrationApproved() {
                     </td>
                     <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
                       <Link
-                        to={`/admin/users/registration/${user.id}`}
+                        to={`/admin/users/registration/view/${user.id}`}
                         className="mr-3 text-white rounded-full font-bold py-2 px-4 bg-blue-500 hover:bg-blue-600"
                       >
                         View

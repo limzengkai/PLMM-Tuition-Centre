@@ -15,10 +15,12 @@ import CardLoading from "../../../CardLoading";
 import Swal from "sweetalert2";
 import { ToastContainer, toast } from "react-toastify";
 import { httpsCallable } from "firebase/functions";
+import generateUniqueVoucherCode from "./CardGenerateVoucherCode";
 
-function CardUsersRegistration() {
+function CardUsersRegistrationView() {
   const [registration, setRegistration] = useState([]);
   const [course, setCourse] = useState([]);
+  const [hasLiked, setHasLiked] = useState(false);
   const [error, setError] = useState();
   const location = useLocation();
   const { id } = useParams();
@@ -36,9 +38,15 @@ function CardUsersRegistration() {
           if (!registrationData.status) {
             navigate("/admin/users/registration");
           }
+          setHasLiked(registrationData.hasLiked || false);
           setRegistration(registrationData);
         } else {
-          console.log("No such document!");
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "No such document! Redirecting to registration page.",
+          });
+          navigate("/admin/users/registration");
         }
 
         const courseQuery = query(collection(db, "class"));
@@ -160,9 +168,7 @@ function CardUsersRegistration() {
 
   const getCourseName = (id) => {
     const foundCourse = course.find((c) => c.id === id);
-    return foundCourse
-      ? `${foundCourse.CourseName}`
-      : "Course not found";
+    return foundCourse ? `${foundCourse.CourseName}` : "Course not found";
   };
 
   const handleApproved = async () => {
@@ -190,18 +196,49 @@ function CardUsersRegistration() {
           // If an error is returned from the Cloud Function, display it
           throw new Error(result.data.error);
         }
-
         const user = result.data.userCredential; // Ensure user ID is obtained correctly
-        console.log("User created:", user);
-
         // Save student information
         await saveStudentInformation(user);
 
+        let voucherCode = "";
+        if (hasLiked) {
+          voucherCode = await generateUniqueVoucherCode(user);
+
+          // Send Voucher Code to user via notification
+          await addDoc(collection(db, "notifications"), {
+            AddTime: new Date(),
+            userId: user,
+            isRead: false,
+            message: `We are pleased to offer you the following voucher code: ${voucherCode.code} becuase of you like our facebook page. This voucher must be used before ${voucherCode.expiryDate}. `,
+          });
+
+          // Send Voucher Code to user via email
+          await addDoc(collection(db, "mail"), {
+            to: registration.email,
+            message: {
+              subject: "Voucher Code for Liking Facebook Page",
+              html: `
+                <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                  <h2>Thank You for Liking Our Facebook Page!</h2>
+                  <p>Dear ${registration.firstName},</p>
+                  <p>Thank you for supporting us by liking our Facebook page. As a token of our appreciation, we are pleased to offer you the following voucher code:</p>
+                  <p style="font-size: 20px; font-weight: bold; color: #2c3e50;">${voucherCode.code}</p>
+                  <p>This voucher must be used before ${voucherCode.expiryDate} .Use this code at checkout to enjoy your discount.</p>
+                  <p>If you have any questions, feel free to reach out to us.</p>
+                  <br>
+                  <p>Best Regards,</p>
+                  <p>PLMM TUITION CENTRE</p>
+                </div>
+              `,
+            },
+          });
+        }
         // Update registration status
         await updateDoc(doc(db, "registration", id), {
           status: false,
           result: true,
           rejectReason: null,
+          hasLiked: hasLiked, // Include the hasLiked state
         });
 
         // Create initial payment for each student
@@ -243,7 +280,11 @@ function CardUsersRegistration() {
 
                 await addDoc(collection(paymentRef, "Classes"), {
                   ClassId: course,
-                  Descriptions: [`Fee for ${remainingClasses} classes left for ${getCourseName(course)}`],
+                  Descriptions: [
+                    `Fee for ${remainingClasses} classes left for ${getCourseName(
+                      course
+                    )}`,
+                  ],
                   FeeAmounts: [totalFee],
                   Quantity: [1],
                 });
@@ -253,9 +294,41 @@ function CardUsersRegistration() {
             }
           }
 
+          // Add notification to the course teacher
+          for (const course of student.registeredCourses) {
+            const classDocRef = doc(db, "class", course);
+            const classDoc = await getDoc(classDocRef);
+
+            if (classDoc.exists()) {
+              const classData = classDoc.data();
+              const teacherId = classData.teacher;
+              const teacherDocRef = doc(db, "teacher", teacherId);
+              const teacherDoc = await getDoc(teacherDocRef);
+
+              if (teacherDoc.exists()) {
+                const teacherUserId = teacherDoc.data().userID;
+                await addDoc(collection(db, "notifications"), {
+                  AddTime: new Date(),
+                  userId: teacherUserId,
+                  isRead: false,
+                  message: `A new student named ${student.firstName + " " +student.lastName} has registered for ${getCourseName(
+                    course
+                  )}.`,
+                });
+              } else {
+                console.error(`Teacher document not found for course: ${course}`);
+              }
+            } else {
+              console.error(`Class document not found for course: ${course}`);
+            }
+          }
+
+          // Add registration fee to payment
           await addDoc(collection(paymentRef, "Classes"), {
             ClassId: null,
-            Description: [`Registration Fee for ${student.firstName} ${student.lastName}`],
+            Descriptions: [
+              `Registration Fee for ${student.firstName} ${student.lastName}`,
+            ],
             FeeAmounts: [30],
             Quantity: [1],
           });
@@ -472,6 +545,49 @@ function CardUsersRegistration() {
                   Postcode: {registration.postcode}
                 </div>
               </div>
+
+              {/* Display uploaded screenshot or "No image found" */}
+              {registration.fileUrl ? (
+                <>
+                  <div className="flex flex-col col-span-2 items-center mb-2">
+                    <div className="font-bold mb-2">Uploaded Screenshot:</div>
+                    <img
+                      src={registration.fileUrl}
+                      alt="Uploaded Screenshot"
+                      className="w-128 h-128 object-contain"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center col-span-2 mb-2">
+                  <div className="font-bold mb-2">Uploaded Screenshot:</div>
+                  <div>No image found</div>
+                </div>
+              )}
+
+              {/* Checkbox for admin to mark if the user has liked the page */}
+              {registration.fileUrl ? (
+                <>
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="font-bold">
+                      FB Username: {registration.fbUsername || "N/A"}
+                    </div>
+                  </div>
+                  <div className="flex items-center mb-2">
+                    <input
+                      type="checkbox"
+                      id="hasLiked"
+                      className="mr-2"
+                      checked={hasLiked}
+                      onChange={(e) => setHasLiked(e.target.checked)}
+                    />
+                    <label htmlFor="hasLiked" className="font-bold">
+                      User has liked the Facebook page
+                    </label>
+                  </div>
+                </>
+              ) : null}
+
               {registration.student &&
                 registration.student.map((student, idx) => (
                   <div
@@ -521,6 +637,7 @@ function CardUsersRegistration() {
                   </div>
                 ))}
             </div>
+
             <div className="flex justify-center mt-4">
               <button
                 className="mr-3 text-white rounded-full font-bold py-2 px-4 bg-green-500 focus:outline-none mb-1 ease-linear transition-all duration-150"
@@ -545,4 +662,4 @@ function CardUsersRegistration() {
   );
 }
 
-export default CardUsersRegistration;
+export default CardUsersRegistrationView;

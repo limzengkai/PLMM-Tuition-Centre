@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import CardLoading from "../../../CardLoading";
-import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc, addDoc, query, where } from "firebase/firestore";
 import { db } from "../../../../../config/firebase";
 import MUIDataTable from "mui-datatables";
 import { createTheme } from "@mui/material/styles";
@@ -42,8 +42,9 @@ function CardFeePaymentManagement() {
         }));
         setStudents(studentsData);
 
-        console.log("Students", studentsData);
-        const usersSnapshot = await getDocs(collection(db, "users"));
+        const usersSnapshot = await getDocs(
+          query(collection(db, "users"), where("role", "==", "parent"))
+        );
         const userData = usersSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -56,9 +57,7 @@ function CardFeePaymentManagement() {
         for (const feeDoc of feeSnapshot.docs) {
           const feeClassesQuery = collection(feeDoc.ref, "Classes");
           const feeClassesSnapshot = await getDocs(feeClassesQuery);
-          const feeClassesData = feeClassesSnapshot.docs.map((doc) =>
-            doc.data()
-          );
+          const feeClassesData = feeClassesSnapshot.docs.map((doc) => doc.data());
 
           feeData.push({
             id: feeDoc.id,
@@ -66,9 +65,7 @@ function CardFeePaymentManagement() {
             classes: feeClassesData,
           });
         }
-
         setFees(feeData);
-        console.log("Fee", feeData);
 
         // Check if all fees are published
         const allPublished = feeData.every(
@@ -84,6 +81,11 @@ function CardFeePaymentManagement() {
     fetchStudentsAndUsers();
   }, []);
 
+  const getStudentById = (studentId) => {
+    const student = students.find((student) => student.id === studentId);
+    return student || {};
+  };
+
   const getParentById = (parentId) => {
     const parent = users.find((user) => user.id === parentId);
     return parent || {};
@@ -93,41 +95,53 @@ function CardFeePaymentManagement() {
     return firstname && lastname ? `${firstname} ${lastname}` : "-";
   };
 
-  const getOutstandingFeeAndLastestFee = (studentId) => {
+  const getPaymentStatusForCurrentMonth = (studentId) => {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+
+    const studentFee = fees.find((fee) => {
+      const dueDate = fee.feeDetail.DueDate.toDate();
+      return (
+        fee.feeDetail.StudentID === studentId &&
+        dueDate.getMonth() === currentMonth &&
+        dueDate.getFullYear() === currentYear
+      );
+    });
+
+    if (studentFee && studentFee.feeDetail.paymentStatus) {
+      return "Paid";
+    } else if (studentFee) {
+      return "Not Paid";
+    } else {
+      return "No Record for this month";
+    }
+  };
+
+  const getOutstandingFeeAndLatestFee = (studentId) => {
     const studentFees = fees.filter(
       (fee) => fee.feeDetail.StudentID === studentId
     );
+
     let outstandingSum = 0;
-    let sumLatestFee = 0;
-    let latestFee = 0;
+    let latestFeeSum = 0;
     let latestDueDate = null;
 
     studentFees.forEach((fee) => {
       if (fee.feeDetail.paymentStatus === false) {
-        fee.classes?.forEach((feeClass) => {
-          feeClass.FeeAmounts?.forEach((feeAmount) => {
+        fee.classes.forEach((feeClass) => {
+          feeClass.FeeAmounts.forEach((feeAmount) => {
             outstandingSum += Number(feeAmount);
           });
         });
       }
+
       const dueDate = fee.feeDetail.DueDate.toDate();
-
-      if (fee.feeDetail.paymentStatus === false) {
-        if (!latestDueDate || dueDate > latestDueDate) {
-          latestDueDate = dueDate;
-          latestFee = fee;
-        }
-      }
-    });
-
-    studentFees.forEach((fee) => {
-      if (
-        latestDueDate &&
-        fee.feeDetail.DueDate.toDate().getTime() === latestDueDate.getTime()
-      ) {
-        fee.classes?.forEach((feeClass) => {
-          feeClass.FeeAmounts?.forEach((feeAmount) => {
-            sumLatestFee += Number(feeAmount);
+      if (!latestDueDate || dueDate > latestDueDate) {
+        latestDueDate = dueDate;
+        latestFeeSum = 0;
+        fee.classes.forEach((feeClass) => {
+          feeClass.FeeAmounts.forEach((feeAmount) => {
+            latestFeeSum += Number(feeAmount);
           });
         });
       }
@@ -138,9 +152,7 @@ function CardFeePaymentManagement() {
           latestDueDate.getMonth() + 1
         }/${latestDueDate.getFullYear()}`
       : "-";
-    const latestFeeString = latestFee
-      ? sumLatestFee + ` (${latestDueDateString})`
-      : "-";
+    const latestFeeString = latestDueDate ? `RM ${latestFeeSum} (${latestDueDateString})` : "-";
 
     return { outstandingSum, latestFeeString };
   };
@@ -151,37 +163,16 @@ function CardFeePaymentManagement() {
       getParentById(student.parentId).firstName,
       getParentById(student.parentId).lastName
     );
-    const outstandingFee = `RM ${
-      getOutstandingFeeAndLastestFee(student.id).outstandingSum
-    }`;
-    const latestFee = `RM ${
-      getOutstandingFeeAndLastestFee(student.id).latestFeeString
-    }`;
+    const { outstandingSum, latestFeeString } = getOutstandingFeeAndLatestFee(student.id);
 
-    const studentFee = fees.find(
-      (fee) => fee.feeDetail.StudentID === student.id
-    );
-
-    let paymentStatus;
-    if (studentFee && studentFee.feeDetail && studentFee.feeDetail.DueDate) {
-      const dueDate = studentFee.feeDetail.DueDate.toDate();
-      const isPaid = studentFee.feeDetail.paymentStatus;
-
-      if (dueDate.getMonth() === new Date().getMonth()) {
-        paymentStatus = isPaid ? "Paid" : "Not Paid";
-      } else {
-        paymentStatus = "No Record for this month";
-      }
-    } else {
-      paymentStatus = "No Record for this month";
-    }
+    const paymentStatus = getPaymentStatusForCurrentMonth(student.id);
 
     return [
       fullName,
       parentFullName,
-      outstandingFee,
+      `RM ${outstandingSum}`,
       paymentStatus,
-      latestFee,
+      latestFeeString,
       <Link
         to={`/admin/fee/view/${student.id}`}
         className="text-indigo-600 hover:text-indigo-900"
@@ -283,8 +274,24 @@ function CardFeePaymentManagement() {
         const feeCollection = collection(db, "fees");
         const feeDocs = await getDocs(feeCollection);
 
-        for (const feeDoc of feeDocs.docs) {
+        // Filter feeDocs to get only the fees that are not yet published
+        const unpublishedFees = feeDocs.docs.filter(
+          (feeDoc) => !feeDoc.data().publish
+        );
+
+        for (const feeDoc of unpublishedFees) {
           await updateDoc(doc(db, "fees", feeDoc.id), { publish: true });
+
+          // Add notification to parent here
+          const parent = getParentById(getStudentById(feeDoc.data().StudentID).parentId).id;
+          const notificationData = {
+            title: "Fee Published",
+            message: `The fee for ${currentMonthName} has been published.`,
+            isRead: false,
+            userId: parent,
+            AddTime: new Date(),
+          };
+          await addDoc(collection(db, "notifications"), notificationData);
         }
 
         setAllFeesPublished(true);

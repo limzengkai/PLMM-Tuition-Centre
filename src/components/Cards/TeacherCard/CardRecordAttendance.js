@@ -55,7 +55,6 @@ function CardRecordAttendance({ color }) {
             id: doc.id,
             ...doc.data(),
           }))[0];
-          console.log("Teacher Data: ", teacherData);
 
           const classDoc = doc(db, "class", id);
           const classSnap = await getDoc(classDoc);
@@ -73,6 +72,7 @@ function CardRecordAttendance({ color }) {
               id: doc.id,
               ...doc.data(),
             }));
+
             setStudents(studentData);
             attendanceData.studentAttendance = studentData.map((student) => ({
               id: student.id,
@@ -80,8 +80,6 @@ function CardRecordAttendance({ color }) {
               status: true,
               comment: "",
             }));
-            console.log("attendance data: ", attendanceData.studentAttendance);
-            console.log("Student Data " , studentData);
             setLoading(false);
           } else {
             console.log("Class document not found");
@@ -104,7 +102,6 @@ function CardRecordAttendance({ color }) {
       ...attendanceData,
       studentAttendance: updatedAttendanceData,
     });
-    console.log("Updated Attendance Data", updatedAttendanceData);
   };
 
   const filteredAttendance =
@@ -119,6 +116,11 @@ function CardRecordAttendance({ color }) {
         })
       : [];
 
+  const getstudentName = (id) => {
+    const student = students.find((student) => student.id === id);
+    return student ? `${student.firstName} ${student.lastName}` : "";
+  };
+
   const getDateForm = (date) => {
     if (date) {
       const year = date.getFullYear();
@@ -129,20 +131,6 @@ function CardRecordAttendance({ color }) {
     return ""; // Return an empty string if date is unknown
   };
 
-  const getTime = (timestamp) => {
-    if (timestamp && timestamp.toDate) {
-      const d = timestamp.toDate();
-      const hours = d.getHours().toString().padStart(2, "0"); // Ensure two digits for hours
-      const minutes = d.getMinutes().toString().padStart(2, "0"); // Ensure two digits for minutes
-      return `${hours}:${minutes}`;
-    }
-    return null;
-  };
-
-  useEffect(() => {
-    console.log("Filtered Attendance", attendanceData);
-  }, []);
-
   const handleStartTimeChange = (date) => {
     setEditedStartTime(date);
   };
@@ -151,7 +139,6 @@ function CardRecordAttendance({ color }) {
     setEditedEndTime(date);
   };
   const handleDateChange = (date) => {
-    console.log("Selected Date:", date); // Add this line to log the selected date
     setEditedDate(date);
   };
 
@@ -163,8 +150,13 @@ function CardRecordAttendance({ color }) {
       ...attendanceData,
       studentAttendance: updatedAttendanceData,
     });
-    console.log("Updated Attendance Data", updatedAttendanceData);
   };
+
+  const getParentId = (studentId) => {
+    const student = students.find((student) => student.id === studentId);
+    return student ? student.parentId : "";
+  };
+
 
   const saveAttendanceDetails = async () => {
     try {
@@ -201,8 +193,6 @@ function CardRecordAttendance({ color }) {
       });
 
       if (result.isConfirmed) {
-        console.log("User confirmed, proceeding to save attendance details");
-
         // Proceed with saving attendance details
         const NewDoc = await addDoc(collection(db, "Attendance"), {
           CourseID: id,
@@ -212,7 +202,6 @@ function CardRecordAttendance({ color }) {
         });
 
         let newDocID = NewDoc.id;
-        console.log("New attendance document created with ID:", newDocID);
 
         const attendancePromises = attendanceData.studentAttendance.map(
           (record) =>
@@ -227,7 +216,19 @@ function CardRecordAttendance({ color }) {
                 `Error saving attendance for student ${record.id}:`,
                 error
               );
-            })
+            }).then(
+              addDoc(collection(db, "notifications"),{
+                userId: getParentId(record.id),
+                message: `${getstudentName(record.id)} have been marked as ${
+                  record.status ? "attended" : "absent"
+                } for ${classData.CourseName} class on ${getDateForm(
+                  dateObj
+                )} from ${startTimeObj.toLocaleTimeString()} to ${endTimeObj.toLocaleTimeString()}.`,
+                isRead: false,
+                AddTime: new Date(),
+              
+              })
+            )
         );
 
         await Promise.all(attendancePromises);
@@ -241,7 +242,6 @@ function CardRecordAttendance({ color }) {
         });
 
         if (swalResult.isConfirmed || swalResult.isDismissed) {
-          console.log("Navigating to the attendance record view page");
           // Navigate to the attendance record view page
           navigate(`/teacher/attendance/class/${id}/view/${newDocID}`);
         }

@@ -13,6 +13,12 @@ import CardLoading from "./CardLoading";
 import Swal from "sweetalert2";
 import profile from "../../assets/img/profile.jpg";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage"; // Import ref and uploadBytes for file uploads
+import DatePicker from "react-datepicker"; // Import DatePicker for Birth Date
+import {
+  getStates,
+  getCities,
+  getPostcodes,
+} from "@ringgitplus/malaysia-states"; // Import Malaysian states, cities, and postcodes
 
 function CardUserInfo() {
   const { currentUser } = useContext(AuthContext); // Access currentUser from AuthContext
@@ -20,14 +26,13 @@ function CardUserInfo() {
   const [userInfo, setUserInfo] = useState({
     firstName: "",
     lastName: "",
-    age: "",
-    icNumber: "",
+    birthDate: new Date(), // Change to birthDate
     email: "",
     contactNumber: "",
     address: "",
     city: "",
     state: "",
-    zip: "",
+    postcode: "",
   });
   const [photo, setPhoto] = useState(null); // Change to null to represent no file selected
   const [photoURL, setPhotoURL] = useState(null); // Add this state to store the photo URL
@@ -40,7 +45,11 @@ function CardUserInfo() {
           const docRef = doc(db, "users", currentUser.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            setUserInfo(docSnap.data());
+            const data = docSnap.data();
+            setUserInfo({
+              ...data,
+              birthDate: data.birthDate ? data.birthDate.toDate() : new Date(),
+            });
           } else {
             console.log("No such document!");
           }
@@ -60,6 +69,38 @@ function CardUserInfo() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setUserInfo({ ...userInfo, [name]: value });
+  };
+
+  const handleDateChange = (date) => {
+    setUserInfo({ ...userInfo, birthDate: date });
+  };
+
+  const handleStateChange = (e) => {
+    const selectedState = e.target.value;
+    setUserInfo({ ...userInfo, state: selectedState, city: "", postcode: "" });
+  };
+
+  const handleCityChange = (e) => {
+    const selectedCity = e.target.value;
+    setUserInfo({ ...userInfo, city: selectedCity, postcode: "" });
+  };
+
+  const handleContactNumberChange = (e) => {
+    const contactNumberPattern = /^\d{3}-\d{7,8}$/;
+    const { value } = e.target;
+    if (contactNumberPattern.test(value) || value === "") {
+      setUserInfo({ ...userInfo, contactNumber: value });
+    } else {
+      Swal.fire({
+        icon: "error",
+        text: "Invalid contact number format (xxx-xxxxxxx or xxx-xxxxxxxx).",
+      });
+    }
+  };
+
+  const validateContactNumber = (number) => {
+    const contactNumberPattern = /^\d{3}-\d{7,8}$/;
+    return contactNumberPattern.test(number);
   };
 
   const handleSubmit = async (e) => {
@@ -84,16 +125,13 @@ function CardUserInfo() {
             `,
           }).then(async (result) => {
             if (result.isConfirmed) {
-              const { value: password } =
-                Swal.getPopup().querySelector("#password");
+              const password = Swal.getPopup().querySelector("#password").value;
 
               // Reauthenticate the user
               const credential = EmailAuthProvider.credential(
                 auth.currentUser.email,
                 password
               );
-              console.log("Credential:", credential);
-              console.log("User:", currentUser);
               try {
                 await reauthenticateWithCredential(
                   auth.currentUser,
@@ -112,22 +150,16 @@ function CardUserInfo() {
               // Proceed with email update
               await updateEmail(auth.currentUser, userInfo.email);
 
-              console.log("Email address updated successfully!");
-
               // Display a message to the user asking them to verify their new email
               Swal.fire({
                 icon: "info",
                 text: "A verification email has been sent to your new email address. Please verify it before updating.",
               });
               sendEmailVerification(auth.currentUser);
-              console.log(
-                "Email address has changed. Waiting for email verification..."
-              );
 
               // Update other user information in Firestore database
               await updateDoc(docRef, userInfo);
 
-              console.log("User information updated successfully!");
               Swal.fire({
                 icon: "success",
                 text: "User information updated successfully!",
@@ -149,7 +181,6 @@ function CardUserInfo() {
               // Update other user information in Firestore database
               await updateDoc(docRef, userInfo);
 
-              console.log("Other user information updated successfully!");
               Swal.fire({
                 icon: "success",
                 text: "Other user information updated successfully!",
@@ -237,6 +268,12 @@ function CardUserInfo() {
   const removePhoto = () => {
     setPhoto(null);
   };
+
+  const states = getStates();
+  const cities = userInfo.state ? getCities(userInfo.state) : [];
+  const postcodes = userInfo.city
+    ? getPostcodes(userInfo.state, userInfo.city)
+    : [];
 
   return (
     <>
@@ -331,43 +368,53 @@ function CardUserInfo() {
                 />
               </div>
             </div>
-            {/* Age */}
+
             <div className="w-full lg:w-6/12 px-4">
               <div className="relative w-full mb-3">
-                <label
-                  className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
-                  htmlFor="age"
-                >
-                  Age
-                </label>
-                <input
-                  type="number"
-                  id="age"
-                  name="age"
-                  value={userInfo.age}
-                  onChange={handleInputChange}
-                  className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
-                  placeholder="User's Age"
-                />
-              </div>
-            </div>
-            {/* IC Number */}
-            <div className="w-full lg:w-6/12 px-4">
-              <div className="relative w-full mb-3">
-                <label
-                  className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
-                  htmlFor="icNumber"
-                >
-                  IC Number
+                <label className="block uppercase text-blueGray-600 text-xs font-bold mb-2">
+                  Contact Number
                 </label>
                 <input
                   type="text"
-                  id="icNumber"
-                  name="icNumber"
-                  value={userInfo.icNumber}
-                  onChange={handleInputChange}
+                  className={`border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150 ${
+                    !validateContactNumber(userInfo.contactNumber) &&
+                    userInfo.contactNumber !== ""
+                      ? "border-red-500"
+                      : ""
+                  }`}
+                  placeholder="xxx-xxxxxxx or xxx-xxxxxxxx"
+                  value={userInfo.contactNumber}
+                  onChange={(e) =>
+                    handleContactNumberChange(e, "contactNumber")
+                  }
+                  required
+                />
+                {!validateContactNumber(userInfo.contactNumber) &&
+                  userInfo.contactNumber !== "" && (
+                    <small className="text-red-500">
+                      Invalid contact number format (01x-xxxxxxx or
+                      011-xxxxxxxx).
+                    </small>
+                  )}
+              </div>
+            </div>
+
+            {/* Birth Date */}
+            <div className="w-full lg:w-6/12 px-4">
+              <div className="relative w-full mb-3">
+                <label
+                  className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
+                  htmlFor="birthDate"
+                >
+                  Birth Date
+                </label>
+                <DatePicker
+                  selected={userInfo.birthDate}
+                  onChange={handleDateChange}
+                  dateFormat="dd/MM/yyyy"
+                  showYearDropdown
                   className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
-                  placeholder="User's IC Number"
+                  placeholderText="Select Birth Date"
                 />
               </div>
             </div>
@@ -386,28 +433,9 @@ function CardUserInfo() {
                   name="email"
                   value={userInfo.email}
                   onChange={handleInputChange}
-                  className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
+                  disabled
+                  className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-gray-300 rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
                   placeholder="User's Email"
-                />
-              </div>
-            </div>
-            {/* Phone */}
-            <div className="w-full lg:w-6/12 px-4">
-              <div className="relative w-full mb-3">
-                <label
-                  className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
-                  htmlFor="contactNumber"
-                >
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  id="contactNumber"
-                  name="contactNumber"
-                  value={userInfo.contactNumber}
-                  onChange={handleInputChange}
-                  className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
-                  placeholder="User's Phone Number"
                 />
               </div>
             </div>
@@ -431,26 +459,6 @@ function CardUserInfo() {
                 />
               </div>
             </div>
-            {/* City */}
-            <div className="w-full lg:w-6/12 px-4">
-              <div className="relative w-full mb-3">
-                <label
-                  className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
-                  htmlFor="city"
-                >
-                  City
-                </label>
-                <input
-                  type="text"
-                  id="city"
-                  name="city"
-                  value={userInfo.city}
-                  onChange={handleInputChange}
-                  className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
-                  placeholder="User's City"
-                />
-              </div>
-            </div>
             {/* State */}
             <div className="w-full lg:w-6/12 px-4">
               <div className="relative w-full mb-3">
@@ -460,39 +468,77 @@ function CardUserInfo() {
                 >
                   State
                 </label>
-                <input
-                  type="text"
+                <select
                   id="state"
                   name="state"
                   value={userInfo.state}
-                  onChange={handleInputChange}
+                  onChange={handleStateChange}
                   className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
-                  placeholder="User's State"
-                />
+                >
+                  <option value="">Select State</option>
+                  {states.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-            {/* Zip */}
+            {/* City */}
             <div className="w-full lg:w-6/12 px-4">
               <div className="relative w-full mb-3">
                 <label
                   className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
-                  htmlFor="zip"
+                  htmlFor="city"
                 >
-                  Zip
+                  City
                 </label>
-                <input
-                  type="text"
-                  id="zip"
-                  name="zip"
+                <select
+                  id="city"
+                  name="city"
+                  value={userInfo.city}
+                  onChange={handleCityChange}
+                  className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
+                  disabled={!userInfo.state}
+                >
+                  <option value="">Select City</option>
+                  {cities.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {/* Postcode */}
+            <div className="w-full lg:w-6/12 px-4">
+              <div className="relative w-full mb-3">
+                <label
+                  className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
+                  htmlFor="postcode"
+                >
+                  Postcode
+                </label>
+                <select
+                  id="postcode"
+                  name="postcode"
                   value={userInfo.postcode}
                   onChange={handleInputChange}
                   className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
-                  placeholder="User's Postcode"
-                />
+                  disabled={!userInfo.city}
+                >
+                  <option value="">Select Postcode</option>
+                  {postcodes.map((postcode) => (
+                    <option key={postcode} value={postcode}>
+                      {postcode}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
+            <div className="w-full lg:w-6/12 px-4"></div>
             {/* Submit button */}
-            <div className="px-4 my-4 mx-auto">
+            <div className=" px-4 my-4 mx-auto">
               <button
                 type="submit"
                 className="bg-blue-500 text-white active:bg-blue-600 font-bold uppercase text-sm px-6 py-3 rounded shadow hover:shadow-lg outline-none focus:outline-none mr-1 mb-1 w-full ease-linear transition-all duration-150"

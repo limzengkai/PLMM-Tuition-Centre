@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 // components
-import ParentNavbar from "../components/Navbars/ParentNavbar.js";
+import UsersNavbar from "../components/Navbars/UsersNavbar.js";
 import Sidebar from "../components/Sidebar/ParentSidebar.js";
 // import HeaderDashboard from "../components/Headers/HeaderDashboard.js";
 // import HeaderFee from "../components/Headers/HeaderFee.js";
@@ -74,7 +74,7 @@ export default function Parent() {
     <>
       <Sidebar />
       <div className="flex flex-col relative md:ml-64 bg-blueGray-100 min-h-screen">
-        <ParentNavbar title={pageTitle} />
+        <UsersNavbar title={pageTitle} />
         {headerComponent}
         <div className="px-4 md:px-10 mx-auto w-full -m-24">
           <div className="flex-grow">
@@ -82,6 +82,7 @@ export default function Parent() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="profile" element={<Profile />} />
               <Route path="fee" element={<Fees />} />
+              <Route path="notifications" element={<Fees />} />
               <Route path="change-password" element={<ChangePassword />} />
               <Route path="fee/view/:id" element={<Fees />} />
               <Route path="attendance" element={<Attendance />} />

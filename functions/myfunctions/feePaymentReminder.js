@@ -7,7 +7,7 @@ if (admin.apps.length === 0) {
 
 // Firebase Cloud Function triggered on the 15th of every month
 exports.feePaymentReminder = functions.pubsub
-  .schedule("00 20 15 * *") // Run on the 15th of every month at 8:01 AM
+  .schedule("00 20 15 * *") // Run on the 15th of every month at 8:00 AM
   .timeZone("Asia/Kuala_Lumpur") // Set timezone to Kuala Lumpur, Malaysia
   .onRun(async (context) => {
     try {
@@ -75,6 +75,7 @@ exports.feePaymentReminder = functions.pubsub
 
       console.log("Overdue Fees:", overdueFees);
       console.log("Classes", overdueFees[0].Classes);
+
       // =================================================================================================
       // Send reminder emails for overdue fees
       await Promise.all(
@@ -242,6 +243,43 @@ exports.feePaymentReminder = functions.pubsub
         })
       );
 
+      // =================================================================================================
+      // Fetch all admin users
+      const usersSnapshot = await admin
+        .firestore()
+        .collection("users")
+        .where("role", "==", "admin")
+        .get();
+
+      if (usersSnapshot.empty) {
+        console.log("No admin users found");
+        return null;
+      }
+
+      // Prepare and add notification data for admins
+      const notificationPromises = [];
+      usersSnapshot.forEach((doc) => {
+        const adminId = doc.id;
+        const notificationData = {
+          title: "Fee Payment Reminder",
+          message: `A fee payment reminder has been sent to each parent.`,
+          isRead: false,
+          userId: adminId,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        // Add notification to the notifications collection
+        const notificationPromise = admin
+          .firestore()
+          .collection("notifications")
+          .add(notificationData);
+        notificationPromises.push(notificationPromise);
+      });
+
+      // Wait for all notifications to be added
+      await Promise.all(notificationPromises);
+
+      console.log("Notifications sent to all admins");
       return null;
     } catch (error) {
       console.error("Error sending payment reminders:", error);
@@ -249,27 +287,27 @@ exports.feePaymentReminder = functions.pubsub
     }
   });
 
-  function formatDate(timestamp) {
-    // Check if the timestamp is in seconds or milliseconds
-    const seconds = timestamp._seconds || Math.floor(timestamp / 1000);
-  
-    // Create a new Date object from the timestamp in UTC
-    const date = new Date(seconds * 1000);
-  
-    // Adjust the date to the GMT+08:00 time zone
-    const timezoneOffset = 8 * 60 * 60 * 1000; // Offset for GMT+08:00 in milliseconds
-    const localDate = new Date(date.getTime() + timezoneOffset);
-  
-    // Get the year, month, and day from the adjusted date object
-    const year = localDate.getFullYear();
-    const month = String(localDate.getMonth() + 1).padStart(2, "0"); // Month starts from 0
-    const day = String(localDate.getDate()).padStart(2, "0");
-  
-    // Concatenate the year, month, and day with slashes
-    const formattedDate = `${year}/${month}/${day}`;
-  
-    // Return the formatted date
-    return formattedDate;
-  }
+function formatDate(timestamp) {
+  // Check if the timestamp is in seconds or milliseconds
+  const seconds = timestamp._seconds || Math.floor(timestamp / 1000);
+
+  // Create a new Date object from the timestamp in UTC
+  const date = new Date(seconds * 1000);
+
+  // Adjust the date to the GMT+08:00 time zone
+  const timezoneOffset = 8 * 60 * 60 * 1000; // Offset for GMT+08:00 in milliseconds
+  const localDate = new Date(date.getTime() + timezoneOffset);
+
+  // Get the year, month, and day from the adjusted date object
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, "0"); // Month starts from 0
+  const day = String(localDate.getDate()).padStart(2, "0");
+
+  // Concatenate the year, month, and day with slashes
+  const formattedDate = `${year}/${month}/${day}`;
+
+  // Return the formatted date
+  return formattedDate;
+}
 
 module.exports = exports;

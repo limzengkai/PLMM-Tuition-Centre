@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../../config/firebase";
 import { collection, addDoc, query, getDocs } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import IndexNavbar from "../../components/Navbars/IndexNavbar";
 import DatePicker from "react-datepicker";
 import Swal from "sweetalert2";
@@ -26,6 +27,9 @@ function Registration() {
   const [postcode, setPostcode] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [file, setFile] = useState(null);
+  const [fileError, setFileError] = useState("");
+  const [fbUsername, setFbUsername] = useState("");
   const [birthDate, setBirthDate] = useState(
     () => new Date(new Date().setFullYear(new Date().getFullYear() - 18))
   );
@@ -52,10 +56,13 @@ function Registration() {
         const coursesQuery = query(collection(db, "class"));
         const coursesSnapshot = await getDocs(coursesQuery);
         const coursesData = coursesSnapshot.docs.map((doc) => ({
-          label: `${doc.data().academicLevel}_${doc.data().CourseName+ " (RM" + doc.data().fee + ")"}`,
+          label: `${doc.data().academicLevel}_${
+            doc.data().CourseName + " (RM" + doc.data().fee + ")"
+          }`,
           value: doc.id,
         }));
         setCourses(coursesData);
+        
       } catch (error) {
         Swal.fire({
           icon: "error",
@@ -68,7 +75,6 @@ function Registration() {
   }, []);
 
   const handleRegister = async () => {
-    // Show confirmation dialog
     const confirmResult = await Swal.fire({
       icon: "warning",
       title: "Confirm Registration",
@@ -80,7 +86,6 @@ function Registration() {
       cancelButtonColor: "#d33",
     });
 
-    // Proceed with registration if the user confirms
     if (confirmResult.isConfirmed) {
       setLoading(true);
       setError("");
@@ -91,8 +96,22 @@ function Registration() {
         return;
       }
 
+      if (fileError) {
+        setError(fileError);
+        setLoading(false);
+        return;
+      }
+
       try {
         UpdatedStudentInformation();
+
+        let fileUrl = "";
+        if (file) {
+          const storage = getStorage();
+          const storageRef = ref(storage, `screenshots/${file.name}`);
+          await uploadBytes(storageRef, file);
+          fileUrl = await getDownloadURL(storageRef);
+        }
 
         await addDoc(collection(db, "registration"), {
           status: true,
@@ -114,6 +133,9 @@ function Registration() {
               (course) => course.value
             ),
           })),
+          fileUrl,
+          fbUsername,
+          hasLiked: false,
         });
 
         Swal.fire({
@@ -136,6 +158,10 @@ function Registration() {
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
+    if (fileError) {
+      setError(fileError);
+      return;
+    }
     Swal.fire({
       title: "Confirm Registration",
       text: "Are you sure you want to submit the registration form?",
@@ -148,6 +174,19 @@ function Registration() {
         handleRegister();
       }
     });
+  };
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    const validImageTypes = ["image/jpeg", "image/png", "image/gif"];
+
+    if (selectedFile && validImageTypes.includes(selectedFile.type)) {
+      setFile(selectedFile);
+      setFileError("");
+    } else {
+      setFile(null);
+      setFileError("Please upload a valid image file (JPEG, PNG, GIF).");
+    }
   };
 
   const UpdatedStudentInformation = () => {
@@ -271,7 +310,6 @@ function Registration() {
                         required
                       />
                     </div>
-
                     <div className="relative mb-3">
                       <label
                         className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -293,7 +331,6 @@ function Registration() {
                         after registration approved by admin
                       </small>
                     </div>
-
                     <div className="relative mb-3">
                       <label
                         className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -311,7 +348,6 @@ function Registration() {
                         required
                       />
                     </div>
-
                     <div className="relative mb-3">
                       <label
                         className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -329,7 +365,6 @@ function Registration() {
                         required
                       />
                     </div>
-
                     <div className="relative mb-3">
                       <label
                         className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -358,7 +393,6 @@ function Registration() {
                           </small>
                         )}
                     </div>
-
                     <div className="relative mb-3">
                       <label
                         className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -375,7 +409,6 @@ function Registration() {
                         required
                       />
                     </div>
-
                     <div className="relative mb-3">
                       <label
                         className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -393,7 +426,6 @@ function Registration() {
                         required
                       />
                     </div>
-
                     <div className="relative mb-3">
                       <label
                         className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -416,7 +448,6 @@ function Registration() {
                         ))}
                       </select>
                     </div>
-
                     <div className="relative mb-3">
                       <label
                         className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -440,7 +471,6 @@ function Registration() {
                         ))}
                       </select>
                     </div>
-
                     <div className="relative mb-3">
                       <label
                         className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
@@ -463,6 +493,55 @@ function Registration() {
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="col-span-2">
+                      <p className="text-blueGray-500 text-sm mt-3 mb-6 font-bold uppercase">
+                        Like our Facebook Page to get a discount voucher, then
+                        upload the screenshot and provide your username.
+                      </p>
+                      <a
+                        href="https://www.facebook.com/ptmmtuitioncentre"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-blue-500 text-white active:bg-blue-600 font-bold uppercase text-xs px-4 py-2 rounded shadow hover:shadow-md outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150"
+                      >
+                        Like our Facebook Page
+                      </a>
+                    </div>
+
+                    <div className="relative mb-3">
+                      <label
+                        className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
+                        htmlFor="file"
+                      >
+                        Upload Screenshot
+                      </label>
+                      <input
+                        type="file"
+                        id="file"
+                        accept="image/*"
+                        className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
+                        onChange={handleFileChange}
+                      />
+                      {fileError && (
+                        <small className="text-red-500">{fileError}</small>
+                      )}
+                    </div>
+
+                    <div className="relative mb-3">
+                      <label
+                        className="block uppercase text-blueGray-600 text-xs font-bold mb-2"
+                        htmlFor="file"
+                      >
+                        Please provide your username after liked our Facebook
+                      </label>
+                      <input
+                        type="text"
+                        id="fbusername"
+                        className="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
+                        onChange={(e) => setFbUsername(e.target.value)}
+                      />
                     </div>
                   </div>
 
@@ -593,7 +672,7 @@ function Registration() {
                           {!validateContactNumber(student.contactNumber) &&
                             student.contactNumber !== "" && (
                               <small className="text-red-500">
-                                Invalid contact number format.
+                                Invalid contact number format (01x-xxxxxxx or 011-xxxxxxxx). 
                               </small>
                             )}
                         </div>

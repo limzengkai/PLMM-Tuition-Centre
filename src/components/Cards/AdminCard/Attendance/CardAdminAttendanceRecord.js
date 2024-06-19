@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../../../../config/context/AuthContext";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import PropTypes from "prop-types";
@@ -22,6 +22,7 @@ function CardAdminAttendanceRecord({ color }) {
   const { id } = useParams();
   const { currentUser } = useContext(AuthContext);
   const [loading, setLoading] = useState(true);
+  const [students, setStudents] = useState([]);
   const [classData, setClassData] = useState(null);
   const [attendanceData, setAttendanceData] = useState({
     studentAttendance: [],
@@ -29,6 +30,7 @@ function CardAdminAttendanceRecord({ color }) {
   const [editedDate, setEditedDate] = useState(new Date());
   const [editedStartTime, setEditedStartTime] = useState(new Date());
   const [editedEndTime, setEditedEndTime] = useState(new Date());
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchAttendanceData = async () => {
@@ -38,19 +40,19 @@ function CardAdminAttendanceRecord({ color }) {
         if (classSnap.exists()) {
           const classData = { id: classSnap.id, ...classSnap.data() };
           setClassData(classData);
-          console.log(classData)
           // Fetch student data for the class
           const studentQuery = query(
             collection(db, "students"),
             where("registeredCourses", "array-contains", id)
           );
-  
+
           const studentSnapshot = await getDocs(studentQuery);
           const studentData = studentSnapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
-  
+          setStudents(studentData);
+
           // Initialize student attendance data only for registered students
           const registeredStudentAttendance = studentData.map((student) => ({
             id: student.id,
@@ -58,12 +60,12 @@ function CardAdminAttendanceRecord({ color }) {
             status: true,
             comment: "",
           }));
-  
+
           setAttendanceData({
             ...attendanceData,
             studentAttendance: registeredStudentAttendance,
           });
-          console.log(attendanceData)
+
           setLoading(false);
         } else {
           console.log("Class document not found");
@@ -72,9 +74,9 @@ function CardAdminAttendanceRecord({ color }) {
         console.error("Error fetching attendance data:", error);
       }
     };
-  
+
     fetchAttendanceData();
-  }, [ currentUser.uid, id, attendanceData ]);
+  }, [currentUser.uid, id, attendanceData]);
 
   const toggleAttendanceStatus = (index) => {
     const updatedAttendanceData = [...attendanceData.studentAttendance];
@@ -114,6 +116,16 @@ function CardAdminAttendanceRecord({ color }) {
       ...attendanceData,
       studentAttendance: updatedAttendanceData,
     });
+  };
+
+  const getstudentName = (id) => {
+    const student = students.find((student) => student.id === id);
+    return student ? `${student.firstName} ${student.lastName}` : "";
+  };
+
+  const getParentId = (studentId) => {
+    const student = students.find((student) => student.id === studentId);
+    return student ? student.parentId : "";
   };
 
   const saveAttendanceDetails = async () => {
@@ -170,15 +182,39 @@ function CardAdminAttendanceRecord({ color }) {
               status: record.status,
               comment: record.comment,
             }
-          );
+          )
+            .catch((error) => {
+              console.error(
+                `Error saving attendance for student ${record.id}:`,
+                error
+              );
+            })
+            .then(
+              addDoc(collection(db, "notifications"), {
+                userId: getParentId(record.id),
+                message: `${getstudentName(record.id)} have been marked as ${
+                  record.status ? "attended" : "absent"
+                } for ${classData.CourseName} class on ${getDateForm(
+                  dateObj
+                )} from ${startTimeObj.toLocaleTimeString()} to ${endTimeObj.toLocaleTimeString()}.`,
+                isRead: false,
+                AddTime: new Date(),
+              })
+            );
         });
 
-        // Success alert
-        Swal.fire({
+        // Show success message
+        const swalResult = await Swal.fire({
           title: "Success!",
           text: "Attendance details saved successfully!",
           icon: "success",
+          confirmButtonColor: "#3085d6",
         });
+
+        if (swalResult.isConfirmed || swalResult.isDismissed) {
+          // Navigate to the attendance record view page
+          navigate(`/admin/attendance/class/${id}/view/${newDocID}`);
+        }
       }
     } catch (error) {
       console.error("Error updating attendance details:", error);
@@ -264,9 +300,7 @@ function CardAdminAttendanceRecord({ color }) {
                   <input
                     type="date"
                     value={editedDate ? getDateForm(editedDate) : ""}
-                    onChange={(e) =>
-                      handleDateChange(new Date(e.target.value))
-                    }
+                    onChange={(e) => handleDateChange(new Date(e.target.value))}
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500 mt-1"
                   />
                 </div>
@@ -320,44 +354,48 @@ function CardAdminAttendanceRecord({ color }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {attendanceData.studentAttendance.map((attendance, index) => (
-                      <tr key={index}>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          {index + 1}
-                        </td>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          {attendance.studentName}
-                        </td>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          <button
-                            style={{
-                              backgroundColor: attendance.status
-                                ? "#FFFF00"
-                                : "#FF0000",
-                              color: attendance.status ? "#000000" : "#FFFFFF",
-                              border: "none",
-                              padding: "8px 12px",
-                              borderRadius: "9999px",
-                              fontWeight: "bold",
-                              cursor: "pointer",
-                            }}
-                            onClick={() => toggleAttendanceStatus(index)}
-                          >
-                            {attendance.status ? "ATTEND" : "ABSENT"}
-                          </button>
-                        </td>
-                        <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
-                          <input
-                            type="text"
-                            value={attendance.comment}
-                            onChange={(e) =>
-                              handleCommentChange(index, e.target.value)
-                            }
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500"
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {attendanceData.studentAttendance.map(
+                      (attendance, index) => (
+                        <tr key={index}>
+                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                            {index + 1}
+                          </td>
+                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                            {attendance.studentName}
+                          </td>
+                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                            <button
+                              style={{
+                                backgroundColor: attendance.status
+                                  ? "#FFFF00"
+                                  : "#FF0000",
+                                color: attendance.status
+                                  ? "#000000"
+                                  : "#FFFFFF",
+                                border: "none",
+                                padding: "8px 12px",
+                                borderRadius: "9999px",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                              }}
+                              onClick={() => toggleAttendanceStatus(index)}
+                            >
+                              {attendance.status ? "ATTEND" : "ABSENT"}
+                            </button>
+                          </td>
+                          <td className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
+                            <input
+                              type="text"
+                              value={attendance.comment}
+                              onChange={(e) =>
+                                handleCommentChange(index, e.target.value)
+                              }
+                              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-indigo-500"
+                            />
+                          </td>
+                        </tr>
+                      )
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -14,12 +14,12 @@ export default function Dashboard() {
     <>
       <div className="flex flex-wrap">
         <div className="w-full xl:w-full">
-          <div className="w-full mb-12 px-4">
+          {/* <div className="w-full mb-12 px-4">
             <CardLineChart />
-          </div>
-          <div className="w-full mb-12 px-4">
+          </div> */}
+          {/* <div className="w-full mb-12 px-4">
             <CardBarChart />
-          </div>
+          </div> */}
           {/* <div className="w-full mb-12 px-4">
             <CardUnpaidList />
           </div>
