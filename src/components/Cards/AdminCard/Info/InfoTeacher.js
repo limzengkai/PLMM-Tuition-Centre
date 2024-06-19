@@ -71,16 +71,12 @@ export default function InfoTeacher({ color }) {
 
   const handleSaveEdit = async () => {
     try {
-      console.log("Editing teacher with ID:", selectedTeacher.id);
       // Update teacher details in the database
       const teacherDoc = doc(db, "teacher", selectedTeacher.id);
       await updateDoc(teacherDoc, {
         description: editDescription,
         status: editStatus === "true" ? true : false,
       });
-      console.log(
-        `Teacher with ID ${selectedTeacher.id} updated successfully.`
-      );
       // Reload the teacher data
       fetchTeachers();
       // Close the edit modal
@@ -107,8 +103,19 @@ export default function InfoTeacher({ color }) {
 
   const handleImageChange = (event) => {
     const file = event.target.files[0];
+    // Check if a file is selected
     if (file) {
-      setPhoto(file);
+      // Check if the selected file is an image
+      if (file.type.startsWith("image/")) {
+        setPhoto(file);
+      } else {
+        // Clear the selected file and display an error message
+        setPhoto(null);
+        Swal.fire({
+          icon: "error",
+          text: "Please select an image file!",
+        });
+      }
     }
   };
 
@@ -246,13 +253,25 @@ export default function InfoTeacher({ color }) {
               <Link
                 to="/admin/info/teachers"
                 className={
-                  " rounded-r-lg font-bold py-2 px-4 m-0" +
+                  "font-bold py-2 px-4 m-0" +
                   (location.pathname.includes("/admin/info/teachers")
                     ? "  bg-blue-500 text-white hover:text-lightBlue-100"
                     : " text-black  hover:bg-blue-500 hover:text-white")
                 }
               >
                 Teacher Home Info
+              </Link>
+
+              <Link
+                to="/admin/info/annoucement"
+                className={
+                  "rounded-r-lg font-bold py-2 px-4 m-0" +
+                  (location.pathname.includes("/admin/info/annoucement")
+                    ? "  bg-blue-500 text-white hover:text-lightBlue-100"
+                    : " text-black  hover:bg-blue-500 hover:text-white")
+                }
+              >
+                Annoucement Info
               </Link>
             </div>
             <div></div>

@@ -37,7 +37,6 @@ function CardUserManagement() {
       });
       setUsers(fetchedUsers);
       setLoading(false);
-      console.log(currentUser);
     });
 
     const fetchStudents = async () => {
@@ -54,7 +53,6 @@ function CardUserManagement() {
     };
 
     fetchStudents();
-    console.log("Users: ", users);
     return unsubscribe; // Cleanup the snapshot listener
   }, []); // Empty dependency array to run the effect only once
 
@@ -199,7 +197,6 @@ function CardUserManagement() {
       );
       setUserStatuses(statusObject);
     };
-    console.log("Users: ", users);
     fetchUserStatuses();
   }, [users]); // Trigger the effect whenever users change
 
@@ -213,13 +210,9 @@ function CardUserManagement() {
       options: {
         sort: true,
         customSort: (a, b) => {
-          // Custom sorting function for dates in the format dd-mm-yyyy
-          const dateA = new Date(
-            a.split("-").reverse().join("-") // Convert to yyyy-mm-dd format for comparison
-          );
-          const dateB = new Date(
-            b.split("-").reverse().join("-") // Convert to yyyy-mm-dd format for comparison
-          );
+          // Custom sorting function for dates in the format yyyy-mm-dd
+          const dateA = new Date(a.split("-").join("-"));
+          const dateB = new Date(b.split("-").join("-"));
           return dateA - dateB; // Compare the dates
         },
       },
@@ -272,7 +265,7 @@ function CardUserManagement() {
             "updateUserStatus"
           );
           console.log("Current User:", updateUserStatusFunction);
-          const result = await updateUserStatusFunction({ userId});
+          const result = await updateUserStatusFunction({ userId });
 
           console.log("User Status Updated:", result);
           setLoading(false);
@@ -315,7 +308,7 @@ function CardUserManagement() {
     <div className="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4">
       <Link
         to={`/admin/users/view/${user.id}`}
-        className="mr-3 text-black rounded-full font-bold py-2 px-4 bg-blue-500"
+        className="mr-3 text-white rounded-full font-bold py-2 px-4 bg-blue-500"
       >
         View
       </Link>
@@ -362,6 +355,10 @@ function CardUserManagement() {
     downloadOptions: { excludeColumns: [3] },
     rowsPerPage: 5,
     rowsPerPageOptions: [5, 10, 20, 50, 100],
+    sortOrder: {
+      name: "REGISTRATION DATE",
+      direction: "desc",
+    },
   };
 
   return (

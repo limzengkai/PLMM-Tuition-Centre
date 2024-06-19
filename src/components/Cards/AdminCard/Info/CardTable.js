@@ -59,34 +59,65 @@ export default function CardTable({ color }) {
 
   const handleUpload = async () => {
     try {
-      if (photo) {
-        const fileRef = ref(
-          storage,
-          `images/${new Date().getTime()}_${photo.name}`
-        );
-        await uploadBytes(fileRef, photo);
-        await addDoc(collection(db, "images"), {
-          name: photo.name,
-          path: fileRef.fullPath,
-        });
-        fetchImages();
-        setPhoto(null);
-
-        Swal.fire({
-          icon: "success",
-          text: "Image uploaded successfully!",
-        });
-      } else {
+      if (!photo) {
         Swal.fire({
           icon: "error",
           text: "Please select an image to upload!",
         });
+        return;
       }
+
+      // Check if the selected file is an image
+      if (!photo.type.startsWith("image/")) {
+        Swal.fire({
+          icon: "error",
+          text: "Please upload an image file!",
+        });
+        return;
+      }
+
+      const fileRef = ref(
+        storage,
+        `images/${new Date().getTime()}_${photo.name}`
+      );
+
+      Swal.fire({
+        title: "Upload Image",
+        text: "Are you sure you want to upload this image?",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes, upload it!",
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          try {
+            await uploadBytes(fileRef, photo);
+            await addDoc(collection(db, "images"), {
+              name: photo.name,
+              path: fileRef.fullPath,
+            });
+            fetchImages();
+            setPhoto(null);
+
+            Swal.fire({
+              icon: "success",
+              text: "Image uploaded successfully!",
+            });
+          } catch (error) {
+            console.error("Error uploading image:", error);
+            Swal.fire({
+              icon: "error",
+              text: "Error uploading image",
+            });
+          }
+        }
+      });
     } catch (error) {
-      console.error("Error uploading image:", error);
+      console.error("Error handling upload:", error);
       Swal.fire({
         icon: "error",
-        text: "Error uploading image",
+        text: "Error handling upload",
       });
     }
   };
@@ -119,22 +150,34 @@ export default function CardTable({ color }) {
   };
 
   const handleEdit = async (id, newName) => {
-    try {
-      const imageDoc = doc(db, "images", id);
-      await updateDoc(imageDoc, { name: newName });
-      fetchImages();
-      setEditName(null);
-      Swal.fire({
-        icon: "success",
-        text: "Image name updated successfully!",
-      });
-    } catch (error) {
-      console.error("Error updating image name:", error);
-      Swal.fire({
-        icon: "error",
-        text: "Error updating image name",
-      });
-    }
+    Swal.fire({
+      title: "Edit Image Name",
+      text: "Are you sure you want to update this image name?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, update it!",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const imageDoc = doc(db, "images", id);
+          await updateDoc(imageDoc, { name: newName });
+          fetchImages();
+          setEditName(null);
+          Swal.fire({
+            icon: "success",
+            text: "Image name updated successfully!",
+          });
+        } catch (error) {
+          console.error("Error updating image name:", error);
+          Swal.fire({
+            icon: "error",
+            text: "Error updating image name",
+          });
+        }
+      }
+    });
   };
 
   const handleImageChange = (e) => {
