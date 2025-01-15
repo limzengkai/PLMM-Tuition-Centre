@@ -30,7 +30,7 @@
     "leaflet": "^1.9.4",
     "mailgun-js": "^0.22.0",
     "mui-datatables": "^4.3.0",
-    "postcss": "^8.4.38",
+    "postcss": "^8.5.0",
     "react": "^18.2.0",
     "react-datepicker": "^6.6.0",
     "react-dom": "^18.2.0",
