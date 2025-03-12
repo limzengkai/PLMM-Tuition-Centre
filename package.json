@@ -25,7 +25,7 @@
     "framer-motion": "^11.2.0",
     "howler": "^2.2.4",
     "html-webpack-plugin": "^5.6.0",
-    "jspdf": "^2.5.1",
+    "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.2",
     "leaflet": "^1.9.4",
     "mailgun-js": "^0.22.0",
