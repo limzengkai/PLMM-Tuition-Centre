@@ -43,7 +43,7 @@
     "react-spinners": "^0.13.8",
     "react-sweetalert2": "^0.6.0",
     "react-tilt": "^1.0.2",
-    "react-to-pdf": "^1.0.1",
+    "react-to-pdf": "^2.0.0",
     "react-toastify": "^10.0.5",
     "swiper": "^11.1.2",
     "web-vitals": "^2.1.4"
